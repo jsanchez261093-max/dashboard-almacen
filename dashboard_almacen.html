@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero de Indicadores — Almacén</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<script>
+  // Register datalabels plugin globally
+  Chart.register(ChartDataLabels);
+  // But default to hidden — only show when explicitly enabled per chart
+  Chart.defaults.set('plugins.datalabels', { display: false });
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f4f5f7; --surface: #ffffff; --surface2: #f8f9fa;
+    --border: #e2e5ea; --border2: #d0d5dd;
+    --text: #1a1d23; --text2: #4b5563; --text3: #9ca3af;
+    --blue: #1e4db7; --blue-light: #e8edfb; --blue-mid: #3266ad;
+    --green: #15803d; --green-light: #dcfce7; --green-mid: #22c55e;
+    --red: #b91c1c; --red-light: #fee2e2; --red-mid: #ef4444;
+    --amber: #b45309; --amber-light: #fef3c7; --amber-mid: #f59e0b;
+    --purple: #6d28d9; --purple-light: #ede9fe;
+    --teal: #0f766e; --teal-light: #ccfbf1;
+    --nav-h: 60px; --sidebar-w: 220px;
+    --radius: 10px; --radius-sm: 6px;
+    --shadow: 0 1px 4px rgba(0,0,0,.07), 0 0 0 1px rgba(0,0,0,.04);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  nav { position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h); background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; z-index: 100; }
+  .nav-logo { font-size: 15px; font-weight: 700; color: var(--blue); letter-spacing: -0.3px; }
+  .nav-sub { font-size: 12px; color: var(--text3); padding-left: 12px; border-left: 1px solid var(--border); }
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .nav-badge { font-size: 11px; background: var(--blue-light); color: var(--blue); padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+  #last-updated { font-size: 11px; color: var(--text3); }
+  .refresh-btn { font-size: 12px; padding: 5px 12px; border: 1px solid var(--border2); border-radius: 6px; background: var(--surface); cursor: pointer; color: var(--text2); transition: background .15s; }
+  .refresh-btn:hover { background: var(--bg); }
+
+  /* SIDEBAR */
+  aside { position: fixed; top: var(--nav-h); left: 0; bottom: 0; width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; overflow-y: auto; z-index: 90; }
+  .sidebar-label { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; padding: 0 20px 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 13px; cursor: pointer; color: var(--text2); border-left: 3px solid transparent; transition: all .12s; user-select: none; }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { border-left-color: var(--blue); background: var(--blue-light); color: var(--blue); font-weight: 600; }
+  .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* MAIN */
+  main { margin-left: var(--sidebar-w); margin-top: var(--nav-h); padding: 28px; min-height: calc(100vh - var(--nav-h)); }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-sm { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+  /* METRIC CARD */
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .metric-label { font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
+  .metric-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+  .metric-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .metric-trend { font-size: 11px; margin-top: 6px; font-weight: 600; }
+  .trend-up { color: var(--green); } .trend-down { color: var(--red); } .trend-flat { color: var(--text3); }
+
+  /* PAGE HEADER */
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: var(--text3); }
+  .week-tabs { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .wtab { font-size: 12px; padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border2); background: var(--surface); cursor: pointer; color: var(--text2); transition: all .12s; }
+  .wtab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  /* TABLE */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text3); padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text2); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+  .badge-ok { background: var(--green-light); color: var(--green); }
+  .badge-warn { background: var(--amber-light); color: var(--amber); }
+  .badge-bad { background: var(--red-light); color: var(--red); }
+  .badge-na { background: var(--surface2); color: var(--text3); }
+
+  /* PROGRESS BAR */
+  .prog-wrap { display: flex; align-items: center; gap: 8px; }
+  .prog { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 60px; }
+  .prog-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+  .prog-ok { background: var(--green-mid); }
+  .prog-warn { background: var(--amber-mid); }
+  .prog-bad { background: var(--red-mid); }
+
+  /* GAUGE */
+  .gauge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .gauge-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .gauge-title { font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 10px; }
+  .gauge-val { font-size: 24px; font-weight: 700; }
+  .gauge-label { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* EXEC SUMMARY */
+  .exec-box { background: linear-gradient(135deg, #1e4db7 0%, #2563eb 100%); border-radius: var(--radius); padding: 22px 24px; color: #fff; margin-top: 20px; }
+  .exec-box h3 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .75; margin-bottom: 10px; }
+  .exec-box p { font-size: 14px; line-height: 1.7; opacity: .92; }
+  .exec-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .exec-pill { font-size: 11px; background: rgba(255,255,255,.18); padding: 4px 12px; border-radius: 20px; font-weight: 600; }
+  .exec-pill.ok { background: rgba(34,197,94,.3); }
+  .exec-pill.warn { background: rgba(245,158,11,.35); }
+  .exec-pill.bad { background: rgba(239,68,68,.35); }
+
+  /* LOADER */
+  .loader { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 60px 0; font-size: 14px; color: var(--text3); }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* CHART WRAPPER */
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* AREA SELECTOR */
+  .area-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .atab { font-size: 12px; padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border2); background: var(--surface); cursor: pointer; color: var(--text2); transition: all .12s; }
+  .atab:hover { background: var(--bg); }
+
+  .section-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+  /* PDF BUTTON */
+  .pdf-btn { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:6px 14px; border-radius:6px; border:none; background:#1e4db7; color:#fff; cursor:pointer; transition:background .15s; }
+  .pdf-btn:hover { background:#1a3f9c; }
+  .pdf-btn:active { transform:scale(.97); }
+  .week-header-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+
+  /* PDF PRINT STYLES */
+  @media print {
+    nav, aside, .week-tabs, .area-tabs, .pdf-btn, #update-banner, #csv-modal, .page-header .page-sub, .refresh-btn { display:none !important; }
+    body { background:#fff; }
+    main { margin:0; padding:0; }
+    .page { display:block !important; }
+    #page-areas { display:none !important; }
+    .grid-2 { grid-template-columns:1fr 1fr; }
+    .card { break-inside:avoid; }
+  }
+
+  /* INDICATOR CHARTS GRID */
+  .ind-charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 12px; }
+  .ind-chart-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .ind-chart-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .ind-chart-title { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; }
+  .ind-chart-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
+  .ind-meta-item { display: flex; flex-direction: column; }
+  .ind-meta-label { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: var(--text3); font-weight: 700; }
+  .ind-meta-val { font-size: 12px; color: var(--text); }
+
+  @media (max-width: 900px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    aside { display: none; }
+    main { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">📦 Almacén KPIs</div>
+  <div class="nav-sub">Tablero de Indicadores</div>
+  <div class="nav-right">
+    <span id="last-updated">Cargando datos…</span>
+    <button class="refresh-btn" onclick="loadData()">↻ Actualizar</button><button class="refresh-btn" onclick="document.getElementById('csv-modal').style.display='flex'" style="margin-left:4px">📋 Pegar CSV</button>
+    <span class="nav-badge" id="week-badge">—</span>
+  </div>
+</nav>
+
+<aside>
+  <div class="sidebar-label">Navegación</div>
+  <div class="nav-item active" onclick="showPage('overview')" data-page="overview">
+    <div class="nav-dot" style="background:#1e4db7"></div>Vista General
+  </div>
+  <div class="nav-item" onclick="showPage('areas')" data-page="areas">
+    <div class="nav-dot" style="background:#0f766e"></div>Por Área
+  </div>
+  <div style="height:12px"></div>
+  <div class="sidebar-label">Áreas</div>
+  <div id="area-nav-items"></div>
+</aside>
+
+<main>
+  <div id="loader" class="loader"><div class="spinner"></div>Conectando con Google Sheets…</div>
+
+  <!-- OVERVIEW PAGE -->
+  <div class="page" id="page-overview">
+    <div class="page-header">
+      <div class="page-title">Vista General del Almacén</div>
+      <div class="page-sub">Resumen ejecutivo de todos los indicadores por área y semana</div>
+      <div class="week-header-row">
+        <div class="week-tabs" id="week-tabs-overview"></div>
+        <button class="pdf-btn" onclick="generarPDF()">⬇ Reporte PDF</button>
+      </div>
+    </div>
+
+    <div class="grid-4" id="overview-metrics"></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title">Resultado Ponderado por Área</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart-areas" role="img" aria-label="Gráfica de barras: resultado ponderado por área"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Evolución Semanal — General</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart-trend" role="img" aria-label="Gráfica de tendencia semanal general"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-title">Semáforo de Áreas — Semana Seleccionada</div>
+      <div class="gauge-grid" id="semaforo-grid"></div>
+    </div>
+
+    <div class="exec-box" id="exec-overview">
+      <h3>📊 Resumen Ejecutivo</h3>
+      <p id="exec-overview-text">Cargando análisis…</p>
+      <div class="exec-pills" id="exec-overview-pills"></div>
+    </div>
+  </div>
+
+  <!-- AREAS PAGE -->
+  <div class="page" id="page-areas">
+    <div class="page-header">
+      <div class="page-title">Indicadores por Área</div>
+      <div class="page-sub">Detalle de KPIs, objetivos y resultados ponderados por área operativa</div>
+      <div class="week-tabs" id="week-tabs-areas"></div>
+    </div>
+
+    <div class="area-tabs" id="area-selector"></div>
+    <div id="area-detail-content"></div>
+  </div>
+
+  <!-- AREA PAGES (individual) -->
+  <div id="area-pages"></div>
+</main>
+
+<script>
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSSJfBGfg9Th8pIVwV2txMDifwWvr5BwufrjjFESR1TEebxJRhV5vkJmxysVwpjV8rTeN_8uwl7ItiB/pub?gid=0&single=true&output=csv';
+const SEED_DATA = [{"Área": "Alto Valor", "Indicador": "% Cumplimiento Surtido Demanda", "Objetivo": "1", "UM": "% (=)", "Responsable": "Juan Sanchez", "Ponderación": "0.3333333333333333", "Semana 17 - 2026": "1", "Resultado Semana 17 - 2026": "0.3333333333333333", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.3333333333333333", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Devoluciones", "Indicador": "CDC Semana Trabajada", "Objetivo": "", "UM": "", "Responsable": "Luis Galarza", "Ponderación": "", "Semana 17 - 2026": "4", "Resultado Semana 17 - 2026": "", "Semana 18 - 2026": "5", "Resultado Semana 18 - 2026": "", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": ""}, {"Área": "Devoluciones", "Indicador": "% Avance CDC", "Objetivo": "0.1667", "UM": "% Avance Semanal (>)", "Responsable": "Luis Galarza", "Ponderación": "0.1", "Semana 17 - 2026": "73.60%", "Resultado Semana 17 - 2026": "0.1", "Semana 18 - 2026": "0.946", "Resultado Semana 18 - 2026": "0.1", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.1"}, {"Área": "Devoluciones", "Indicador": "% Avance CDC, On time por semana", "Objetivo": "", "UM": "% Avance Sobre Target (>)", "Responsable": "Luis Galarza", "Ponderación": "0.1", "Semana 17 - 2026": "6.80%", "Resultado Semana 17 - 2026": "0.1", "Semana 18 - 2026": "0.111", "Resultado Semana 18 - 2026": "0.1", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.1"}, {"Área": "Devoluciones", "Indicador": "Zona Roja", "Objetivo": "2", "UM": "SLA (<días)", "Responsable": "Luis Galarza", "Ponderación": "0.1", "Semana 17 - 2026": "0", "Resultado Semana 17 - 2026": "0.1", "Semana 18 - 2026": "0.92", "Resultado Semana 18 - 2026": "0.1", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.1"}, {"Área": "Devoluciones", "Indicador": "Atención Discrepancias", "Objetivo": "5", "UM": "SLA (<días)", "Responsable": "Luis Galarza", "Ponderación": "0.1", "Semana 17 - 2026": "4.37", "Resultado Semana 17 - 2026": "0.1", "Semana 18 - 2026": "4.9", "Resultado Semana 18 - 2026": "0.1", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.1"}, {"Área": "Devoluciones", "Indicador": "Reporte Devoluciones Amazon", "Objetivo": "3", "UM": "SLA (<días)", "Responsable": "Luis Galarza", "Ponderación": "0.1", "Semana 17 - 2026": "0", "Resultado Semana 17 - 2026": "0.1", "Semana 18 - 2026": "0", "Resultado Semana 18 - 2026": "0.1", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.1"}, {"Área": "Devoluciones", "Indicador": "Reporte Devoluciones Mercado Libre", "Objetivo": "3", "UM": "SLA (<días)", "Responsable": "Luis Galarza", "Ponderación": "0.1", "Semana 17 - 2026": "0", "Resultado Semana 17 - 2026": "0.1", "Semana 18 - 2026": "0", "Resultado Semana 18 - 2026": "0.1", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.1"}, {"Área": "Embarques/Insumos", "Indicador": "Entrega Aeropuertos", "Objetivo": "1", "UM": "% (=)", "Responsable": "Elias Ramirez", "Ponderación": "0.125", "Semana 17 - 2026": "1", "Resultado Semana 17 - 2026": "0.125", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Embarques/Insumos", "Indicador": "Nivel de Servicio Insumos", "Objetivo": "98.5%", "UM": "% (>)", "Responsable": "Elias Ramirez", "Ponderación": "0.125", "Semana 17 - 2026": "1", "Resultado Semana 17 - 2026": "0.125", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Embarques/Insumos", "Indicador": "Orden y Limpieza Embarques", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Elias Ramirez", "Ponderación": "0.125", "Semana 17 - 2026": "0.9077", "Resultado Semana 17 - 2026": "0.1194342105263158", "Semana 18 - 2026": "0.8423", "Resultado Semana 18 - 2026": "0.11082894736842107", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Embarques/Insumos", "Indicador": "Orden y Limpieza Insumos", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Elias Ramirez", "Ponderación": "0.125", "Semana 17 - 2026": "0.9271", "Resultado Semana 17 - 2026": "0.12198684210526317", "Semana 18 - 2026": "0.9583", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Multialmacen/Reabasto", "Indicador": "Orden y Limpieza Multialmacen", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Juan Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "0.934", "Resultado Semana 17 - 2026": "0.12289473684210528", "Semana 18 - 2026": "0.809", "Resultado Semana 18 - 2026": "0.10644736842105264", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Alto Valor", "Indicador": "Orden y Limpieza Alto Valor", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Juan Sanchez", "Ponderación": "0.3333333333333333", "Semana 17 - 2026": "0.934", "Resultado Semana 17 - 2026": "0.3277192982456141", "Semana 18 - 2026": "0.9236", "Resultado Semana 18 - 2026": "0.3240701754385965", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Devoluciones", "Indicador": "Orden y Limpieza Devoluciones", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Luis Galarza", "Ponderación": "0.1", "Semana 17 - 2026": "0.875", "Resultado Semana 17 - 2026": "0.09210526315789475", "Semana 18 - 2026": "0.8646", "Resultado Semana 18 - 2026": "0.09101052631578949", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Garantías", "Indicador": "Orden y Limpieza Garantías", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Luis Galarza", "Ponderación": "0.14285714285714285", "Semana 17 - 2026": "0.9653", "Resultado Semana 17 - 2026": "0.14285714285714285", "Semana 18 - 2026": "0.9792", "Resultado Semana 18 - 2026": "0.14285714285714285", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Producción", "Indicador": "Orden y Limpieza Producción", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Juan Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "0.9792", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "0.9688", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Picking", "Indicador": "Orden y Limpieza Picking", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Daniel Abarca", "Ponderación": "0.2", "Semana 17 - 2026": "0.8854", "Resultado Semana 17 - 2026": "0.1864", "Semana 18 - 2026": "0.9167", "Resultado Semana 18 - 2026": "0.19298947368421054", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Checado", "Indicador": "Orden y Limpieza Checado", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Daniel Abarca", "Ponderación": "0.16666666666666666", "Semana 17 - 2026": "0.9167", "Resultado Semana 17 - 2026": "0.16082456140350876", "Semana 18 - 2026": "0.9271", "Resultado Semana 18 - 2026": "0.16264912280701754", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Mesa De Control", "Indicador": "Orden y Limpieza Mesa De Control", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Daniel Abarca", "Ponderación": "0.2", "Semana 17 - 2026": "0.9896", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "0.9896", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Inventarios", "Indicador": "Orden y Limpieza Inventarios", "Objetivo": "0.95", "UM": "% (>)", "Responsable": "Evelin Hernandez", "Ponderación": "0.2", "Semana 17 - 2026": "0.9792", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "0.9792", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Garantías", "Indicador": "Inspección de Contenedor \"Audio, Carga, Tecnología, Protección\"", "Objetivo": "1", "UM": "% Avance en el Tiempo Inspección (<)", "Responsable": "Luis Galarza", "Ponderación": "0.14285714285714285", "Semana 17 - 2026": "0.28", "Resultado Semana 17 - 2026": "0.14285714285714285", "Semana 18 - 2026": "0.5684", "Resultado Semana 18 - 2026": "0.14285714285714285", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.14285714285714285"}, {"Área": "Garantías", "Indicador": "Reporte de ODS Mobo Fácil Solicitud de Liberación", "Objetivo": "1.5", "UM": "SLA (<días)", "Responsable": "Luis Galarza", "Ponderación": "0.14285714285714285", "Semana 17 - 2026": "0", "Resultado Semana 17 - 2026": "0.14285714285714285", "Semana 18 - 2026": "0.21", "Resultado Semana 18 - 2026": "0.14285714285714285", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.14285714285714285"}, {"Área": "Garantías", "Indicador": "Reporte de ODS Mobo Fácil Entrega a ST", "Objetivo": "1", "UM": "SLA (<días)", "Responsable": "Luis Galarza", "Ponderación": "0.14285714285714285", "Semana 17 - 2026": "0", "Resultado Semana 17 - 2026": "0.14285714285714285", "Semana 18 - 2026": "0.11", "Resultado Semana 18 - 2026": "0.14285714285714285", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.14285714285714285"}, {"Área": "Garantías", "Indicador": "Reporte de ODS Mobo Fácil Entrega a Proveedor", "Objetivo": "1", "UM": "SLA (<días)", "Responsable": "Luis Galarza", "Ponderación": "0.14285714285714285", "Semana 17 - 2026": "0", "Resultado Semana 17 - 2026": "0.14285714285714285", "Semana 18 - 2026": "0.43", "Resultado Semana 18 - 2026": "0.14285714285714285", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.14285714285714285"}, {"Área": "Inventarios", "Indicador": "Cédulas de inventario (IRA)", "Objetivo": "0.9995", "UM": "% (>)", "Responsable": "Evelin Hernandez", "Ponderación": "0.2", "Semana 17 - 2026": "0.9998", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Mesa De Control", "Indicador": "% Cumplimiento Garantías Totales", "Objetivo": "0.985", "UM": "% (>)", "Responsable": "Daniel Abarca", "Ponderación": "0.2", "Semana 17 - 2026": "0.986", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Mesa De Control", "Indicador": "% Cumplimiento Garantías Tiendas Top 100", "Objetivo": "0.985", "UM": "% (>)", "Responsable": "Daniel Abarca", "Ponderación": "0.2", "Semana 17 - 2026": "0.986", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Mesa De Control", "Indicador": "% Cumplimiento Garantías Mayoreo", "Objetivo": "0.985", "UM": "% (>)", "Responsable": "Daniel Abarca", "Ponderación": "0.2", "Semana 17 - 2026": "0.971", "Resultado Semana 17 - 2026": "0.1971573604060914", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Multialmacen/Reabasto", "Indicador": "% Ocupación Multialmacen", "Objetivo": "0.85", "UM": "% (<)", "Responsable": "Juan Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "0.87", "Resultado Semana 17 - 2026": "0.1225", "Semana 18 - 2026": "0.8515", "Resultado Semana 18 - 2026": "0.12481249999999999", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.125"}, {"Área": "Picking", "Indicador": "% Discrepancias Surtido", "Objetivo": "0.04", "UM": "% (<)", "Responsable": "Evelin Hernandez", "Ponderación": "0.2", "Semana 17 - 2026": "0.043", "Resultado Semana 17 - 2026": "0.0", "Semana 18 - 2026": "0.0459", "Resultado Semana 18 - 2026": "0.0", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.2"}, {"Área": "Picking", "Indicador": "% Negados Surtido", "Objetivo": "1.2%", "UM": "% (<)", "Responsable": "Evelin Hernandez", "Ponderación": "0.2", "Semana 17 - 2026": "0.0126", "Resultado Semana 17 - 2026": "0.0", "Semana 18 - 2026": "0.0119", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.2"}, {"Área": "Checado", "Indicador": "% Discrepancias Surtido", "Objetivo": "0.04", "UM": "% (<)", "Responsable": "Evelin Hernandez", "Ponderación": "0.16666666666666666", "Semana 17 - 2026": "0.043", "Resultado Semana 17 - 2026": "0.0", "Semana 18 - 2026": "0.0459", "Resultado Semana 18 - 2026": "0.0", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.16666666666666666"}, {"Área": "Checado", "Indicador": "% Negados Surtido", "Objetivo": "1.2%", "UM": "% (<)", "Responsable": "Evelin Hernandez", "Ponderación": "0.16666666666666666", "Semana 17 - 2026": "0.0126", "Resultado Semana 17 - 2026": "0.0", "Semana 18 - 2026": "0.0119", "Resultado Semana 18 - 2026": "0.16666666666666666", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.16666666666666666"}, {"Área": "Inventarios", "Indicador": "% Discrepancias Surtido", "Objetivo": "0.04", "UM": "% (<)", "Responsable": "Evelin Hernandez", "Ponderación": "0.2", "Semana 17 - 2026": "0.043", "Resultado Semana 17 - 2026": "0.0", "Semana 18 - 2026": "0.0459", "Resultado Semana 18 - 2026": "0.0", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.2"}, {"Área": "Inventarios", "Indicador": "% Negados Surtido", "Objetivo": "1.2%", "UM": "% (<)", "Responsable": "Evelin Hernandez", "Ponderación": "0.2", "Semana 17 - 2026": "0.0126", "Resultado Semana 17 - 2026": "0.0", "Semana 18 - 2026": "0.0119", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.2"}, {"Área": "Producción", "Indicador": "% Cumplimiento Plan de Producción", "Objetivo": "1", "UM": "% (=)", "Responsable": "Juan Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "1", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Alto Valor", "Indicador": "% Fuerza de Trabajo Alto Valor", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.3333333333333333", "Semana 17 - 2026": "0.95", "Resultado Semana 17 - 2026": "0.3333333333333333", "Semana 18 - 2026": "0.94", "Resultado Semana 18 - 2026": "0.3333333333333333", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Checado", "Indicador": "% Fuerza de Trabajo Checado", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.16666666666666666", "Semana 17 - 2026": "0.8333", "Resultado Semana 17 - 2026": "0.1526190476190476", "Semana 18 - 2026": "0.85", "Resultado Semana 18 - 2026": "0.15567765567765565", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Devoluciones", "Indicador": "% Fuerza de Trabajo Devoluciones", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.1", "Semana 17 - 2026": "0.88", "Resultado Semana 17 - 2026": "0.0967032967032967", "Semana 18 - 2026": "0.88", "Resultado Semana 18 - 2026": "0.0967032967032967", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Embarques/Insumos", "Indicador": "% Fuerza de Trabajo Embarques", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "0.85", "Resultado Semana 17 - 2026": "0.11675824175824175", "Semana 18 - 2026": "0.91", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Garantías", "Indicador": "% Fuerza de Trabajo Garantías", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.14285714285714285", "Semana 17 - 2026": "0.9", "Resultado Semana 17 - 2026": "0.141287284144427", "Semana 18 - 2026": "0.88", "Resultado Semana 18 - 2026": "0.13814756671899528", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Embarques/Insumos", "Indicador": "% Fuerza de Trabajo Insumos", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "1", "Resultado Semana 17 - 2026": "0.125", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Inventarios", "Indicador": "% Fuerza de Trabajo Inventarios", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "1", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Mesa De Control", "Indicador": "% Fuerza de Trabajo Mesa de Control", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "0.95", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "0.81", "Resultado Semana 18 - 2026": "0.17802197802197806", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Multialmacen/Reabasto", "Indicador": "% Fuerza de Trabajo Multialmacén", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "0.8", "Resultado Semana 17 - 2026": "0.10989010989010989", "Semana 18 - 2026": "0.78", "Resultado Semana 18 - 2026": "0.10714285714285714", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Picking", "Indicador": "% Fuerza de Trabajo Picking", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "0.7556", "Resultado Semana 17 - 2026": "0.16606593406593406", "Semana 18 - 2026": "0.83", "Resultado Semana 18 - 2026": "0.18241758241758244", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Producción", "Indicador": "% Fuerza de Trabajo Producción", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "0.5429", "Resultado Semana 17 - 2026": "0.11931868131868134", "Semana 18 - 2026": "0.71", "Resultado Semana 18 - 2026": "0.15604395604395604", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Multialmacen/Reabasto", "Indicador": "% Fuerza de Trabajo Reabasto", "Objetivo": "0.91", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "0.96", "Resultado Semana 17 - 2026": "0.125", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Multialmacen/Reabasto", "Indicador": "Auditoria FIFO", "Objetivo": "0.9", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "0.889", "Resultado Semana 17 - 2026": "0.12347222222222222", "Semana 18 - 2026": "0.944", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Devoluciones", "Indicador": "Auditoria FIFO Devoluciones", "Objetivo": "0.9", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.1", "Semana 17 - 2026": "0.909", "Resultado Semana 17 - 2026": "0.1", "Semana 18 - 2026": "0.941", "Resultado Semana 18 - 2026": "0.1", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Multialmacen/Reabasto", "Indicador": "Auditoria FIFO Oxxo", "Objetivo": "0.9", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "1", "Resultado Semana 17 - 2026": "0.125", "Semana 18 - 2026": "1", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Multialmacen/Reabasto", "Indicador": "Auditoria Lay Out (Ingeniería)", "Objetivo": "0.97", "UM": "% (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "0.9808", "Resultado Semana 17 - 2026": "0.125", "Semana 18 - 2026": "0.954", "Resultado Semana 18 - 2026": "0.1229381443298969", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Producción", "Indicador": "Lead Time Volados", "Objetivo": "1.25", "UM": "Días (<)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "1.71", "Resultado Semana 17 - 2026": "0.0", "Semana 18 - 2026": "2", "Resultado Semana 18 - 2026": "0.0", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.2"}, {"Área": "Multialmacen/Reabasto", "Indicador": "Productividad Reabasto", "Objetivo": "717", "UM": "Pzs-Hra (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "452", "Resultado Semana 17 - 2026": "0.07880055788005579", "Semana 18 - 2026": "576", "Resultado Semana 18 - 2026": "0.100418410041841", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Checado", "Indicador": "Productividad Checado Piezas", "Objetivo": "362", "UM": "Pzs-Hra (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.16666666666666666", "Semana 17 - 2026": "361", "Resultado Semana 17 - 2026": "0.1662062615101289", "Semana 18 - 2026": "450", "Resultado Semana 18 - 2026": "0.16666666666666666", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Checado", "Indicador": "Productividad Checado Cubetas", "Objetivo": "10.93", "UM": "Cubetas-Hra (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.16666666666666666", "Semana 17 - 2026": "12.71", "Resultado Semana 17 - 2026": "0.16666666666666666", "Semana 18 - 2026": "11.79", "Resultado Semana 18 - 2026": "0.16666666666666666", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Producción", "Indicador": "Productividad Producción", "Objetivo": "112", "UM": "Pzs-Hra (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "185", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "171", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Devoluciones", "Indicador": "Productividad CDC", "Objetivo": "149", "UM": "Pzs-Hra (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.1", "Semana 17 - 2026": "229", "Resultado Semana 17 - 2026": "0.1", "Semana 18 - 2026": "-", "Resultado Semana 18 - 2026": "0.1", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Garantías", "Indicador": "Productividad Garantías", "Objetivo": "98", "UM": "Pzs-Hra (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.14285714285714285", "Semana 17 - 2026": "-", "Resultado Semana 17 - 2026": "0.14285714285714285", "Semana 18 - 2026": "197", "Resultado Semana 18 - 2026": "0.14285714285714285", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Picking", "Indicador": "Productividad Picking", "Objetivo": "0.1042", "UM": "Pzs-Hra (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.2", "Semana 17 - 2026": "0.1123", "Resultado Semana 17 - 2026": "0.2", "Semana 18 - 2026": "0.1153", "Resultado Semana 18 - 2026": "0.2", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Embarques/Insumos", "Indicador": "Productividad Embarques Cajas", "Objetivo": "55", "UM": "Cajas-Hra (>)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "-", "Resultado Semana 17 - 2026": "0.125", "Semana 18 - 2026": "110.86", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.0"}, {"Área": "Embarques/Insumos", "Indicador": "Productividad Embarques Horas Descarga", "Objetivo": "2.59", "UM": "Horas Descarga (<)", "Responsable": "Alfredo Sanchez", "Ponderación": "0.125", "Semana 17 - 2026": "0", "Resultado Semana 17 - 2026": "0.125", "Semana 18 - 2026": "1.47", "Resultado Semana 18 - 2026": "0.125", "Semana 19 - 2026": "", "Resultado Semana 19 - 2026": "0.125"}];
+
+const AREA_COLORS = {
+  'Alto Valor':'#1e4db7','Devoluciones':'#0f766e','Embarques/Insumos':'#b45309',
+  'Multialmacen/Reabasto':'#6d28d9','Garantías':'#be185d','Producción':'#b91c1c',
+  'Picking':'#0369a1','Checado':'#065f46','Mesa De Control':'#92400e','Inventarios':'#374151'
+};
+const AREA_COLORS_LIGHT = {
+  'Alto Valor':'#e8edfb','Devoluciones':'#ccfbf1','Embarques/Insumos':'#fef3c7',
+  'Multialmacen/Reabasto':'#ede9fe','Garantías':'#fce7f3','Producción':'#fee2e2',
+  'Picking':'#e0f2fe','Checado':'#d1fae5','Mesa De Control':'#fef3c7','Inventarios':'#f3f4f6'
+};
+
+let DATA = [], WEEKS = [], SEL_WEEK = '', SEL_AREA = '', chartAreas = null, chartTrend = null, areaCharts = {};
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line => {
+    const vals = [];
+    let cur = '', inQ = false;
+    for (let c of line) {
+      if (c === '"') { inQ = !inQ; continue; }
+      if (c === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    vals.push(cur.trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = vals[i] || '');
+    return obj;
+  });
+}
+
+function toNum(v) {
+  if (v === undefined || v === null || v === '' || v === '-') return null;
+  const n = parseFloat(String(v).replace(/[%,]/g,''));
+  return isNaN(n) ? null : n;
+}
+
+// Detect unit type from UM column
+function umType(um) {
+  if (!um) return 'num';
+  const u = um.toLowerCase();
+  if (u.includes('%')) return 'pct';
+  if (u.includes('sla') || u.includes('días') || u.includes('dias') || u.includes('horas descarga')) return 'dias';
+  if (u.includes('pzs') || u.includes('cubetas') || u.includes('cajas')) return 'prod';
+  return 'num';
+}
+
+// Is lower better? (<) in UM
+function isLowerBetter(um) {
+  return um && (um.includes('(<') || um.includes('< '));
+}
+
+// Format a raw value based on its UM
+function fmtVal(v, um) {
+  if (v === null || v === undefined || v === '' || v === '-') return '—';
+  const n = toNum(v);
+  if (n === null) return String(v);
+  const t = umType(um);
+  if (t === 'pct') return (n * 100).toFixed(1) + '%';
+  if (t === 'dias') return n % 1 === 0 ? n + ' d' : n.toFixed(2) + ' d';
+  if (t === 'prod') return n % 1 === 0 ? n.toLocaleString('es-MX') : n.toFixed(2);
+  return n % 1 === 0 ? n.toLocaleString('es-MX') : n.toFixed(3);
+}
+
+// Format objetivo value based on UM
+function fmtObj(v, um) {
+  if (v === null || v === undefined || v === '') return '—';
+  const s = String(v).trim();
+  if (s.endsWith('%')) {
+    const n = parseFloat(s);
+    return isNaN(n) ? s : n.toFixed(2) + '%';
+  }
+  const n = toNum(v);
+  if (n === null) return s;
+  const t = umType(um);
+  if (t === 'pct') return (n * 100).toFixed(1) + '%';
+  if (t === 'dias') return n % 1 === 0 ? n + ' d' : n.toFixed(2) + ' d';
+  if (t === 'prod') return n % 1 === 0 ? n.toLocaleString('es-MX') : n.toFixed(2);
+  return n % 1 === 0 ? n.toLocaleString('es-MX') : n.toFixed(3);
+}
+
+// Format UM label for display (short)
+function fmtUM(um) {
+  if (!um) return '';
+  const map = {
+    '% (=)': '% (=)', '% (>)': '% (>)', '% (<)': '% (<)',
+    '% avance semanal (>)': '% av. (>)', '% avance sobre target (>)': '% target (>)',
+    '% avance en el tiempo inspección (<)': '% av. (<)',
+    'sla (<días)': 'SLA días (<)', 'días (<)': 'Días (<)',
+    'pzs-hra (>)': 'Pzs/Hra (>)', 'cubetas-hra (>)': 'Cub/Hra (>)',
+    'cajas-hra (>)': 'Cajas/Hra (>)', 'horas descarga (<)': 'Hrs desc. (<)'
+  };
+  return map[um.toLowerCase()] || um;
+}
+
+// Evaluate cumplimiento: returns ratio 0-1 where 1 = fully meets objective
+function evalCumplimiento(rawVal, objVal, um) {
+  const r = toNum(rawVal);
+  const o = toNum(objVal);
+  if (r === null || o === null || o === 0) return null;
+  const lb = isLowerBetter(um);
+  if (lb) {
+    // lower is better: cumple if r <= o
+    return r <= o ? 1 : o / r;
+  } else {
+    // higher is better or equal: cumple if r >= o
+    return r >= o ? 1 : r / o;
+  }
+}
+
+function statusColor(pct) {
+  if (pct >= 0.95) return 'ok';
+  if (pct >= 0.80) return 'warn';
+  return 'bad';
+}
+function statusLabel(pct) {
+  if (pct >= 0.95) return '✓ Cumple';
+  if (pct >= 0.80) return '⚠ Parcial';
+  return '✗ No cumple';
+}
+// Legacy alias
+function fmtRaw(v, um) { return fmtVal(v, um); }
+
+function processRows(rows) {
+  DATA = rows.filter(r => r['Área'] && r['Área'].trim() && r['Indicador'] && r['Indicador'].trim());
+  WEEKS = [];
+  const headers = Object.keys(DATA[0] || {});
+  headers.forEach(h => { if (/^Semana \d+ - \d+$/.test(h)) WEEKS.push(h); });
+  SEL_WEEK = WEEKS[WEEKS.length - 1] || '';
+  SEL_AREA = [...new Set(DATA.map(r => r['Área']))][0] || '';
+  renderAll();
+  const now = new Date();
+  document.getElementById('last-updated').textContent = 'Actualizado: ' + now.toLocaleTimeString('es-MX');
+  document.getElementById('week-badge').textContent = SEL_WEEK.replace('Semana ','S');
+}
+
+function parseCSVtoRows(text) {
+  return parseCSV(text).filter(r => r['Área'] && r['Área'].trim() && r['Indicador'] && r['Indicador'].trim());
+}
+
+async function loadData() {
+  document.getElementById('loader').style.display = 'flex';
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  // Try live fetch first
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(CSV_URL, { signal: ctrl.signal });
+    clearTimeout(tid);
+    if (res.ok) {
+      const text = await res.text();
+      processRows(parseCSVtoRows(text));
+      return;
+    }
+  } catch(e) { /* fall through to seed */ }
+  // Use embedded seed data
+  processRows(SEED_DATA);
+  document.getElementById('last-updated').textContent = 'Datos embebidos (sin conexión)';
+  // Show update banner
+  document.getElementById('update-banner').style.display = 'flex';
+}
+
+function loadFromCSV(text) {
+  try {
+    const rows = parseCSVtoRows(text);
+    if (rows.length === 0) throw new Error('No se encontraron filas válidas');
+    processRows(rows);
+    document.getElementById('update-banner').style.display = 'none';
+    document.getElementById('csv-modal').style.display = 'none';
+    document.getElementById('last-updated').textContent = 'Actualizado desde CSV: ' + new Date().toLocaleTimeString('es-MX');
+  } catch(e) {
+    alert('Error al procesar el CSV: ' + e.message);
+  }
+}
+
+function getAreaTotals(week) {
+  const map = {};
+  DATA.forEach(r => {
+    const area = r['Área'];
+    const res = toNum(r['Resultado ' + week]);
+    if (!map[area]) map[area] = { sum: 0, count: 0, maxPond: 0 };
+    if (res !== null) map[area].sum += res;
+    map[area].count++;
+  });
+  return map;
+}
+
+function renderAll() {
+  document.getElementById('loader').style.display = 'none';
+  renderSidebarAreas();
+  renderWeekTabs();
+  renderOverview();
+  renderAreas();
+  showPage('overview');
+}
+
+function renderSidebarAreas() {
+  const areas = [...new Set(DATA.map(r => r['Área']))];
+  const container = document.getElementById('area-nav-items');
+  container.innerHTML = areas.map(a => `
+    <div class="nav-item" onclick="showAreaDirect('${a}')" data-area="${a}">
+      <div class="nav-dot" style="background:${AREA_COLORS[a]||'#888'}"></div>
+      <span style="font-size:12px">${a}</span>
+    </div>
+  `).join('');
+}
+
+function renderWeekTabs() {
+  ['overview','areas'].forEach(pg => {
+    const el = document.getElementById(`week-tabs-${pg}`);
+    if (!el) return;
+    el.innerHTML = WEEKS.map(w => `<div class="wtab ${w===SEL_WEEK?'active':''}" onclick="selectWeek('${w}','${pg}')">${w}</div>`).join('');
+  });
+}
+
+function selectWeek(w, pg) {
+  SEL_WEEK = w;
+  document.getElementById('week-badge').textContent = w.replace('Semana ','S');
+  renderWeekTabs();
+  if (pg === 'overview') renderOverview();
+  else renderAreas();
+}
+
+function renderOverview() {
+  const totals = getAreaTotals(SEL_WEEK);
+  const areas = Object.keys(totals);
+  const scores = areas.map(a => totals[a].sum);
+  const avgScore = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
+  const bestArea = areas[scores.indexOf(Math.max(...scores))];
+  const worstArea = areas[scores.indexOf(Math.min(...scores))];
+  const totalIndicators = DATA.length;
+  const withData = DATA.filter(r => toNum(r['Resultado '+SEL_WEEK]) !== null).length;
+
+  // Metrics
+  document.getElementById('overview-metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Score General</div><div class="metric-value" style="color:${avgScore>=0.95?'var(--green)':avgScore>=0.80?'var(--amber)':'var(--red)'}">${(avgScore*100).toFixed(1)}%</div><div class="metric-sub">${SEL_WEEK}</div></div>
+    <div class="metric"><div class="metric-label">Áreas Evaluadas</div><div class="metric-value">${areas.length}</div><div class="metric-sub">de ${areas.length} totales</div></div>
+    <div class="metric"><div class="metric-label">Indicadores con Dato</div><div class="metric-value">${withData}</div><div class="metric-sub">de ${totalIndicators} totales</div></div>
+    <div class="metric"><div class="metric-label">Mejor Área</div><div class="metric-value" style="font-size:16px;line-height:1.3">${bestArea||'—'}</div><div class="metric-sub" style="color:var(--green)">${bestArea?((totals[bestArea].sum)*100).toFixed(1)+'%':''}</div></div>
+  `;
+
+  // Chart by area
+  const ctx1 = document.getElementById('chart-areas').getContext('2d');
+  if (chartAreas) chartAreas.destroy();
+  chartAreas = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: areas,
+      datasets: [{
+        label: 'Resultado ponderado',
+        data: scores.map(s => parseFloat((s*100).toFixed(2))),
+        backgroundColor: areas.map(a => AREA_COLORS[a]||'#888'),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
+        y: { min: 0, max: 100, ticks: { callback: v => Math.round(v)+'%', font: { size: 11 } }, grid: { color: '#f0f0f0' } }
+      }
+    }
+  });
+
+  // Trend chart
+  const ctx2 = document.getElementById('chart-trend').getContext('2d');
+  if (chartTrend) chartTrend.destroy();
+  const trendData = WEEKS.map(w => {
+    const t = getAreaTotals(w);
+    const vals = Object.values(t).map(v => v.sum);
+    return vals.length ? parseFloat(((vals.reduce((a,b)=>a+b,0)/vals.length)*100).toFixed(2)) : null;
+  });
+  chartTrend = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: WEEKS.map(w => w.replace(' - 2026','')),
+      datasets: [{
+        label: 'Score promedio',
+        data: trendData,
+        borderColor: '#1e4db7', backgroundColor: 'rgba(30,77,183,.08)',
+        borderWidth: 2, pointRadius: 5, tension: 0.3, fill: true
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 100, ticks: { callback: v => Math.round(v)+'%', font: { size: 11 } }, grid: { color: '#f0f0f0' } },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Semáforo
+  document.getElementById('semaforo-grid').innerHTML = areas.map(a => {
+    const score = totals[a].sum;
+    const pct = score;
+    const color = pct >= 0.95 ? 'var(--green)' : pct >= 0.80 ? 'var(--amber)' : 'var(--red)';
+    const emoji = pct >= 0.95 ? '🟢' : pct >= 0.80 ? '🟡' : '🔴';
+    return `<div class="gauge-card">
+      <div class="gauge-title">${a}</div>
+      <div class="gauge-val" style="color:${color}">${(pct*100).toFixed(1)}%</div>
+      <div class="gauge-label">${emoji} ${statusLabel(pct)}</div>
+    </div>`;
+  }).join('');
+
+  // Exec summary
+  const cumple = areas.filter(a => totals[a].sum >= 0.95);
+  const parcial = areas.filter(a => totals[a].sum >= 0.80 && totals[a].sum < 0.95);
+  const nocumple = areas.filter(a => totals[a].sum < 0.80);
+  document.getElementById('exec-overview-text').textContent =
+    `Durante ${SEL_WEEK}, el almacén registró un score general ponderado de ${(avgScore*100).toFixed(1)}%, con ${areas.length} áreas evaluadas. ` +
+    (cumple.length ? `${cumple.length} área(s) alcanzaron el objetivo (≥95%): ${cumple.join(', ')}. ` : '') +
+    (parcial.length ? `${parcial.length} área(s) presentaron desempeño parcial (80–94%): ${parcial.join(', ')}. ` : '') +
+    (nocumple.length ? `${nocumple.length} área(s) requieren atención urgente (<80%): ${nocumple.join(', ')}. ` : '') +
+    `El área con mejor resultado fue ${bestArea} (${(totals[bestArea]?.sum*100||0).toFixed(1)}%) y la de menor desempeño fue ${worstArea} (${(totals[worstArea]?.sum*100||0).toFixed(1)}%).`;
+  document.getElementById('exec-overview-pills').innerHTML =
+    cumple.map(a => `<span class="exec-pill ok">✓ ${a}</span>`).join('') +
+    parcial.map(a => `<span class="exec-pill warn">⚠ ${a}</span>`).join('') +
+    nocumple.map(a => `<span class="exec-pill bad">✗ ${a}</span>`).join('');
+}
+
+function renderAreas() {
+  const areas = [...new Set(DATA.map(r => r['Área']))];
+  // Area selector tabs
+  document.getElementById('area-selector').innerHTML = areas.map(a => `
+    <div class="atab ${a===SEL_AREA?'active':''}" style="${a===SEL_AREA?`background:${AREA_COLORS[a]};color:#fff;border-color:${AREA_COLORS[a]}`:''}" onclick="selectArea('${a}')">${a}</div>
+  `).join('');
+  renderAreaDetail(SEL_AREA);
+}
+
+function selectArea(a) {
+  SEL_AREA = a;
+  renderAreas();
+}
+
+// ── Chart type selector by UM ──────────────────────────────────────────────
+function chartTypeForUM(um) {
+  if (!um) return 'line_pct';
+  const u = um.toLowerCase();
+  if (u.includes('avance semanal') || u.includes('avance sobre target') || u.includes('avance en el tiempo')) return 'line_avance';
+  if (u.includes('sla') || u.includes('días') || u.includes('dias') || u.includes('horas descarga')) return 'bar_sla';
+  if (u.includes('pzs') || u.includes('cubetas') || u.includes('cajas')) return 'bar_prod';
+  return 'line_pct'; // default for all % types
+}
+
+// Get effective objective for % Avance CDC (semana * 16.67%)
+function getEffectiveObj(row, allRows) {
+  if (!row.um) return toNum(row.obj);
+  const u = row.um.toLowerCase();
+  if (u.includes('avance semanal')) {
+    // Find CDC Semana Trabajada row
+    const cdcRow = allRows.find(r => r['Indicador'] && r['Indicador'].includes('CDC Semana Trabajada'));
+    const cdcWeeks = cdcRow ? WEEKS.map(w => toNum(cdcRow[w])) : [];
+    const selIdx = WEEKS.indexOf(SEL_WEEK);
+    const semanas = selIdx >= 0 && cdcWeeks[selIdx] !== null ? cdcWeeks[selIdx] : toNum(cdcRow ? cdcRow[WEEKS[WEEKS.length-1]] : null);
+    return semanas !== null ? semanas * 0.1667 : 0.1667;
+  }
+  return toNum(row.obj);
+}
+
+function getEffectiveObjForWeek(row, allRows, weekIdx) {
+  if (!row.um) return toNum(row.obj);
+  const u = row.um.toLowerCase();
+  if (u.includes('avance semanal')) {
+    const cdcRow = allRows.find(r => r['Indicador'] && r['Indicador'].includes('CDC Semana Trabajada'));
+    if (!cdcRow) return toNum(row.obj);
+    const semanas = toNum(cdcRow[WEEKS[weekIdx]]);
+    return semanas !== null ? semanas * 0.1667 : null;
+  }
+  return toNum(row.obj);
+}
+
+function safeId(s) { return s.replace(/[^a-z0-9]/gi,'_'); }
+
+function renderAreaDetail(area) {
+  const rows = DATA.filter(r => r['Área'] === area);
+  const allRows = DATA; // needed for CDC cross-ref
+  const color = AREA_COLORS[area] || '#888';
+  const colorLight = AREA_COLORS_LIGHT[area] || '#f3f4f6';
+
+  const weekRes = rows
+    .filter(r => r['Indicador'] !== 'CDC Semana Trabajada') // hide helper row from table
+    .map(r => ({
+      ind: r['Indicador'], res: toNum(r['Resultado '+SEL_WEEK]),
+      raw: r[SEL_WEEK], pond: toNum(r['Ponderación']),
+      obj: r['Objetivo'], um: r['UM'], resp: r['Responsable'],
+      _row: r
+    }));
+  const totalPond = rows.reduce((s,r) => s + (toNum(r['Resultado '+SEL_WEEK])||0), 0);
+  const trendLabels = WEEKS.map(w => w.replace(/ - \d{4}/,''));
+  const trendVals = WEEKS.map(w => parseFloat((rows.reduce((acc,r)=>acc+(toNum(r['Resultado '+w])||0),0)*100).toFixed(2)));
+
+  // Build per-indicator chart cards HTML
+  const indCharts = weekRes.map((r, idx) => {
+    const ctype = chartTypeForUM(r.um);
+    const cid = `indchart_${safeId(area)}_${idx}`;
+    const lb = isLowerBetter(r.um);
+    const cumpl = evalCumplimiento(r.raw, r.obj, r.um);
+    const status = cumpl !== null ? statusColor(cumpl) : 'na';
+    const statusCss = status==='ok'?'var(--green)':status==='warn'?'var(--amber)':status==='bad'?'var(--red)':'var(--text3)';
+    const effObj = getEffectiveObj(r._row, allRows);
+
+    // Historical values for this indicator
+    const hVals = WEEKS.map(w => {
+      const v = toNum(r._row[w]);
+      if (v === null) return null;
+      const t = umType(r.um);
+      if (t === 'pct' || ctype === 'line_avance') return parseFloat((v*100).toFixed(3));
+      return parseFloat(v);
+    });
+    const hTargets = WEEKS.map((w,wi) => {
+      const eo = getEffectiveObjForWeek(r._row, allRows, wi);
+      if (eo === null) return null;
+      const t = umType(r.um);
+      return (t === 'pct' || ctype === 'line_avance') ? parseFloat((eo*100).toFixed(3)) : parseFloat(eo);
+    });
+    const hasHistory = hVals.some(v => v !== null);
+
+    const resultDisplay = fmtVal(r.raw, r.um);
+    const objDisplay = r.um && r.um.toLowerCase().includes('avance semanal')
+      ? (effObj !== null ? (effObj*100).toFixed(1)+'%' : '—')
+      : fmtObj(r.obj, r.um);
+
+    return `
+    <div class="ind-chart-card" style="border-top:3px solid ${statusCss}">
+      <div class="ind-chart-header">
+        <div class="ind-chart-title">${r.ind}</div>
+        <span class="badge badge-${status==='na'?'na':status}" style="flex-shrink:0">${cumpl!==null?statusLabel(cumpl):'Sin dato'}</span>
+      </div>
+      <div class="ind-chart-meta">
+        <span class="ind-meta-item"><span class="ind-meta-label">Objetivo</span><span class="ind-meta-val" style="color:var(--text2)">${objDisplay}</span></span>
+        <span class="ind-meta-item"><span class="ind-meta-label">Resultado</span><span class="ind-meta-val" style="font-weight:700;color:${statusCss}">${resultDisplay}</span></span>
+        <span class="ind-meta-item"><span class="ind-meta-label">vs Obj.</span><span class="ind-meta-val" style="font-weight:700;color:${statusCss}">${cumpl!==null?(cumpl*100).toFixed(1)+'%':'—'}</span></span>
+        <span class="ind-meta-item"><span class="ind-meta-label">Pond.</span><span class="ind-meta-val">${r.res!==null?(r.res*100).toFixed(1)+'%':'—'}</span></span>
+        <span class="ind-meta-item"><span class="ind-meta-label">UM</span><span class="ind-meta-val" style="color:var(--text3)">${fmtUM(r.um)}</span></span>
+      </div>
+      ${hasHistory
+        ? `<div class="chart-wrap" style="height:110px"><canvas id="${cid}"></canvas></div>`
+        : `<div style="height:60px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3)">Sin histórico disponible</div>`
+      }
+    </div>`;
+  }).join('');
+
+  let html = `
+    <div class="card" style="margin-bottom:16px;border-top:3px solid ${color}">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div style="width:42px;height:42px;border-radius:10px;background:${colorLight};display:flex;align-items:center;justify-content:center;font-size:20px">${areaEmoji(area)}</div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)">${area}</div>
+          <div style="font-size:12px;color:var(--text3)">${weekRes.length} indicadores · ${SEL_WEEK}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:26px;font-weight:700;color:${totalPond>=0.95?'var(--green)':totalPond>=0.80?'var(--amber)':'var(--red)'}">${(totalPond*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text3)">resultado ponderado</div>
+        </div>
+      </div>
+
+      <!-- Summary table + area trend -->
+      <div class="grid-2" style="margin-bottom:20px">
+        <div>
+          <div class="section-title">Resumen — ${SEL_WEEK}</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Indicador</th><th>UM</th><th>Objetivo</th><th>Resultado</th><th>vs Obj.</th><th>% Pond.</th><th>Res. Ponderado</th><th>Estado</th></tr></thead>
+              <tbody>
+                ${weekRes.map(r => {
+                  const cumpl = evalCumplimiento(r.raw, r.obj, r.um);
+                  const status = cumpl !== null ? statusColor(cumpl) : (r.res !== null ? statusColor(r.res / (r.pond||1)) : 'na');
+                  const label  = cumpl !== null ? statusLabel(cumpl) : (r.res !== null ? statusLabel(r.res/(r.pond||1)) : '—');
+                  const pondPct = r.pond !== null ? (r.pond*100).toFixed(1)+'%' : '—';
+                  const resPond = r.res !== null ? (r.res*100).toFixed(1)+'%' : '—';
+                  const resPondColor = status==='ok'?'var(--green)':status==='warn'?'var(--amber)':status==='bad'?'var(--red)':'var(--text3)';
+                  const effObjDisp = r.um && r.um.toLowerCase().includes('avance semanal')
+                    ? (() => { const e=getEffectiveObj(r._row,allRows); return e!==null?(e*100).toFixed(1)+'%':'—'; })()
+                    : fmtObj(r.obj, r.um);
+                  return `<tr>
+                    <td style="font-weight:500;color:var(--text);max-width:170px">${r.ind}</td>
+                    <td style="color:var(--text3);font-size:10px;white-space:nowrap">${fmtUM(r.um)}</td>
+                    <td style="color:var(--text3);white-space:nowrap">${effObjDisp}</td>
+                    <td style="white-space:nowrap;font-weight:600">${fmtVal(r.raw,r.um)}</td>
+                    <td>${cumpl!==null?`<span style="font-size:12px;font-weight:700;color:${cumpl>=0.98?'var(--green)':cumpl>=0.80?'var(--amber)':'var(--red)'}">${(cumpl*100).toFixed(1)}%</span>`:'—'}</td>
+                    <td style="color:var(--text2);text-align:center">${pondPct}</td>
+                    <td style="font-weight:700;color:${resPondColor};text-align:center">${resPond}</td>
+                    <td><span class="badge badge-${status==='na'?'na':status}">${label}</span></td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div class="section-title">Score ponderado — evolución</div>
+          <div class="chart-wrap" style="height:180px"><canvas id="chart-area-${safeId(area)}"></canvas></div>
+          <div class="section-title" style="margin-top:16px">Histórico</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Semana</th><th>Score</th><th>Δ</th></tr></thead>
+              <tbody>
+                ${WEEKS.map((w,i) => {
+                  const s = rows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+w])||0),0);
+                  const prev = i>0?rows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+WEEKS[i-1]])||0),0):null;
+                  const delta = prev!==null?s-prev:null;
+                  return `<tr style="${w===SEL_WEEK?'background:var(--blue-light)':''}">
+                    <td style="font-weight:${w===SEL_WEEK?'700':'400'}">${w}</td>
+                    <td><div class="prog-wrap"><div class="prog"><div class="prog-fill prog-${statusColor(s)}" style="width:${Math.min(100,(s*100)).toFixed(1)}%"></div></div><span style="font-size:11px;min-width:44px;text-align:right">${(s*100).toFixed(1)}%</span></div></td>
+                    <td>${delta!==null?`<span style="font-size:11px;font-weight:600;color:${delta>=0?'var(--green)':'var(--red)'}">${delta>=0?'▲':'▼'} ${Math.abs(delta*100).toFixed(1)}%</span>`:'—'}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-indicator charts -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+        <div class="section-title" style="margin-bottom:0">Gráficos por Indicador</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button class="wtab" id="lbltoggle-${safeId(area)}" style="padding:4px 12px;background:var(--surface);border:1px solid var(--border2)" onclick="toggleLabels('${safeId(area)}')">🏷 Etiquetas: OFF</button>
+          <span style="font-size:11px;color:var(--text3);margin-left:4px">Rango:</span>
+          ${['4','8','12','26','52','Todo'].map(n=>`<button class="wtab ${n==='Todo'?'active':''}" style="padding:4px 10px" onclick="setWeekRange('${n}','${safeId(area)}')">${n==='Todo'?'Todo':n+' sem.'}</button>`).join('')}
+        </div>
+      </div>
+      <div class="ind-charts-grid" id="indgrid-${safeId(area)}">${indCharts}</div>
+    </div>
+    ${renderAreaExec(area, weekRes, totalPond, color)}
+  `;
+
+  document.getElementById('area-detail-content').innerHTML = html;
+
+  // Store area data for re-rendering on range change
+  window._areaChartData = window._areaChartData || {};
+  window._areaChartData[safeId(area)] = { area, rows, weekRes, allRows, color, trendLabels, trendVals };
+  window._areaWeekRange = window._areaWeekRange || {};
+  window._areaWeekRange[safeId(area)] = null; // null = all
+
+  renderAreaCharts(safeId(area));
+}
+
+// ── Data label toggle ─────────────────────────────────────────────────────
+window._areaLabels = {};
+function toggleLabels(areaKey) {
+  window._areaLabels[areaKey] = !window._areaLabels[areaKey];
+  const btn = document.getElementById(`lbltoggle-${areaKey}`);
+  const on = window._areaLabels[areaKey];
+  if (btn) {
+    btn.textContent = on ? '🏷 Etiquetas: ON' : '🏷 Etiquetas: OFF';
+    btn.style.background = on ? 'var(--blue)' : 'var(--surface)';
+    btn.style.color = on ? '#fff' : '';
+    btn.style.borderColor = on ? 'var(--blue)' : 'var(--border2)';
+  }
+  renderAreaCharts(areaKey);
+}
+
+// ── Week range selector ────────────────────────────────────────────────────
+function setWeekRange(n, areaKey) {
+  window._areaWeekRange = window._areaWeekRange || {};
+  window._areaWeekRange[areaKey] = n === 'Todo' ? null : parseInt(n);
+  // Update button styles
+  document.querySelectorAll(`#indgrid-${areaKey}`).forEach(g => {
+    const btns = g.closest('.card').querySelectorAll('.wtab');
+    btns.forEach(b => b.classList.toggle('active', b.textContent.replace(' sem.','') === n || (n==='Todo' && b.textContent==='Todo')));
+  });
+  renderAreaCharts(areaKey);
+}
+
+// ── Smart axis range: pad min/max to avoid extreme peaks ─────────────────
+function smartYAxis(vals, targets, lb) {
+  const all = [...vals, ...targets].filter(v => v !== null && v !== undefined && !isNaN(v));
+  if (!all.length) return { min: undefined, max: undefined };
+  const dataMin = Math.min(...all);
+  const dataMax = Math.max(...all);
+  const range = dataMax - dataMin || Math.max(dataMax * 0.1, 1);
+  const pad = range * 0.4; // 40% padding
+
+  // Determine a clean step size based on data range
+  const rawRange = range + pad * 2;
+  const step = rawRange <= 2 ? 0.5
+    : rawRange <= 5 ? 1
+    : rawRange <= 10 ? 2
+    : rawRange <= 20 ? 5
+    : rawRange <= 50 ? 10
+    : rawRange <= 100 ? 20
+    : rawRange <= 500 ? 100
+    : 200;
+
+  const yMin = Math.max(0, Math.floor((dataMin - pad) / step) * step);
+  const yMax = Math.ceil((dataMax + pad) / step) * step;
+
+  return { min: yMin, max: yMax, stepSize: step };
+}
+
+// ── Render all charts for an area (called on load + range change) ─────────
+function renderAreaCharts(areaKey) {
+  const d = window._areaChartData?.[areaKey];
+  if (!d) return;
+  const { area, rows, weekRes, allRows, color, trendLabels, trendVals } = d;
+  const rangeN = window._areaWeekRange?.[areaKey] ?? null;
+  const showLabels = window._areaLabels?.[areaKey] ?? false;
+
+  // Label formatter — clean number without excess decimals
+  const labelFmt = (val, isPct) => {
+    if (val === null || val === undefined) return '';
+    if (isPct) return Math.round(val * 10) / 10 + '%';
+    return Number.isInteger(val) ? val : +val.toFixed(2);
+  };
+
+  // Apply week range filter
+  const filteredWeeks = rangeN ? WEEKS.slice(-rangeN) : WEEKS;
+  const filteredLabels = filteredWeeks.map(w => w.replace(/ - \d{4}/,''));
+  const filteredTrendVals = filteredWeeks.map(w =>
+    parseFloat((rows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+w])||0),0)*100).toFixed(2))
+  );
+
+  setTimeout(() => {
+    // 1. Area trend chart
+    const areaEl = document.getElementById(`chart-area-${areaKey}`);
+    if (areaEl) {
+      Chart.getChart(areaEl)?.destroy();
+      new Chart(areaEl.getContext('2d'), {
+        type: 'line',
+        data: { labels: filteredLabels, datasets: [{
+          label: area, data: filteredTrendVals,
+          borderColor: color, backgroundColor: color+'18',
+          borderWidth: 2, pointRadius: 5, tension: 0.3, fill: true
+        }]},
+        options: { responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{
+            y:{ min:0, max:100, ticks:{callback:v=>Math.round(v)+'%',font:{size:10}}, grid:{color:'#f0f0f0'} },
+            x:{ ticks:{font:{size:10}} }
+          }
+        }
+      });
+    }
+
+    // 2. Per-indicator charts
+    weekRes.forEach((r, idx) => {
+      const cid = `indchart_${areaKey}_${idx}`;
+      const el = document.getElementById(cid);
+      if (!el) return;
+
+      // Destroy previous instance
+      Chart.getChart(el)?.destroy();
+
+      const ctype = chartTypeForUM(r.um);
+      const lb = isLowerBetter(r.um);
+      // For % and avance types, raw values are 0-1 decimals → multiply by 100
+      // For SLA/días/prod, raw values are already in their native unit
+      const tPct = umType(r.um) === 'pct' || ctype === 'line_avance';
+      const iColor = AREA_COLORS[area] || '#1e4db7';
+
+      // Build values for the filtered week range
+      // KEY FIX: use hasOwnProperty check — 0 is a valid value, only null/''/'-' are missing
+      const hVals = filteredWeeks.map(w => {
+        const raw = r._row[w];
+        // Treat empty string, '-', undefined, null as missing; 0 is valid!
+        if (raw === undefined || raw === null || raw === '' || String(raw).trim() === '-') return null;
+        const n = parseFloat(String(raw).replace(/[%,]/g,''));
+        if (isNaN(n)) return null;
+        // Round to 1 decimal to avoid floating-point noise on axis labels
+        return tPct ? Math.round(n * 1000) / 10 : Math.round(n * 100) / 100;
+      });
+
+      const hTargets = filteredWeeks.map((w,wi) => {
+        const globalWi = WEEKS.indexOf(w);
+        const eo = getEffectiveObjForWeek(r._row, allRows, globalWi);
+        if (eo === null) return null;
+        return tPct ? Math.round(eo * 1000) / 10 : Math.round(eo * 100) / 100;
+      });
+
+      const hasAnyVal = hVals.some(v => v !== null);
+      if (!hasAnyVal) return;
+
+      const cumplRatio = (val, tgt) => {
+        if (val===null || tgt===null || tgt===0) return null;
+        return lb ? (val<=tgt ? 1 : tgt/val) : (val>=tgt ? 1 : val/tgt);
+      };
+      const cumplColor = (val, tgt) => {
+        const ratio = cumplRatio(val, tgt);
+        if (ratio===null) return iColor+'99';
+        return ratio>=0.95?'#22c55e':ratio>=0.80?'#f59e0b':'#ef4444';
+      };
+
+      const fmtTip = v => {
+        if (v === null) return 'S/D';
+        if (tPct) return Math.round(v * 10) / 10 + '%';
+        return Number.isInteger(v) ? v : +v.toFixed(2);
+      };
+      const { min: yMin, max: yMax, stepSize } = smartYAxis(hVals, hTargets, lb);
+
+      // Shared datalabels config (only Resultado dataset, index 0)
+      const dlPlugin = showLabels ? {
+        anchor: 'end', align: 'top', offset: 2,
+        font: { size: 9, weight: '600' },
+        color: '#374151',
+        formatter: val => val === null ? '' : labelFmt(val, tPct),
+        display: ctx => ctx.datasetIndex === 0 && ctx.dataset.data[ctx.dataIndex] !== null
+      } : { display: false };
+
+      if (ctype === 'bar_sla' || ctype === 'bar_prod') {
+        const barColors = hVals.map((v,i) => cumplColor(v, hTargets[i]));
+        new Chart(el.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: filteredLabels,
+            datasets: [
+              { label: 'Resultado', data: hVals, backgroundColor: barColors, borderRadius: 4, barPercentage: 0.6 },
+              { label: 'Target', data: hTargets, type:'line', borderColor:'#ef4444',
+                borderDash:[4,3], borderWidth:2, pointRadius:3,
+                pointBackgroundColor:'#ef4444', fill:false, spanGaps:true }
+            ]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{display:false},
+              tooltip:{ callbacks:{ label: ctx => ctx.dataset.label+': '+fmtTip(ctx.parsed.y) }},
+              datalabels: dlPlugin
+            },
+            scales:{
+              x:{ ticks:{font:{size:9}}, grid:{color:'#f0f0f0'} },
+              y:{ min: yMin, max: yMax,
+                ticks:{ font:{size:9}, stepSize,
+                  callback: v => tPct ? Math.round(v)+'%' : (Number.isInteger(v) ? v : +v.toFixed(2)) },
+                grid:{color:'#f0f0f0'} }
+            }
+          }
+        });
+
+      } else {
+        // Line chart
+        const cumplColors = hVals.map((v,i) => cumplColor(v, hTargets[i]));
+        new Chart(el.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: filteredLabels,
+            datasets: [
+              { label: 'Resultado', data: hVals,
+                borderColor: iColor, backgroundColor: iColor+'22',
+                borderWidth: 2, pointRadius: 5,
+                pointBackgroundColor: cumplColors,
+                pointBorderColor:'#fff', pointBorderWidth:1,
+                tension: 0.3, fill: true, spanGaps: false },
+              { label: 'Target', data: hTargets,
+                borderColor:'#ef4444', borderDash:[5,3],
+                borderWidth:2, pointRadius:3, pointStyle:'crossRot',
+                fill:false, spanGaps:true }
+            ]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{display:false},
+              tooltip:{ callbacks:{ label: ctx => ctx.dataset.label+': '+fmtTip(ctx.parsed.y) }},
+              datalabels: dlPlugin
+            },
+            scales:{
+              y:{ min: yMin, max: yMax,
+                ticks:{ font:{size:9}, stepSize,
+                  callback: v => tPct ? Math.round(v)+'%' : (Number.isInteger(v) ? v : +v.toFixed(2)) },
+                grid:{color:'#f0f0f0'} },
+              x:{ ticks:{font:{size:9}} }
+            }
+          }
+        });
+      }
+    });
+  }, 80);
+}
+
+function renderAreaExec(area, weekRes, totalPond, color) {
+  const cumple = weekRes.filter(r => r.res !== null && r.res >= (r.pond||0.9)*0.98).map(r=>r.ind);
+  const nocumple = weekRes.filter(r => r.res !== null && r.res < (r.pond||0.9)*0.80).map(r=>r.ind);
+  const sinDato = weekRes.filter(r => r.res === null).map(r=>r.ind);
+  const resp = [...new Set(weekRes.map(r=>r.resp).filter(Boolean))];
+  return `
+    <div class="exec-box" style="background:linear-gradient(135deg, ${color} 0%, ${color}cc 100%)">
+      <h3>📋 Resumen Ejecutivo — ${area}</h3>
+      <p id="exec-${area.replace(/\s/g,'_')}">
+        El área de <strong>${area}</strong> registró un resultado ponderado de <strong>${(totalPond*100).toFixed(1)}%</strong> en ${SEL_WEEK}.
+        ${totalPond>=0.95?'El área opera dentro del objetivo. Se recomienda mantener las buenas prácticas y buscar oportunidades de mejora continua.':
+          totalPond>=0.80?'El desempeño es parcial. Se identifican áreas de oportunidad que requieren atención en el corto plazo para alcanzar el objetivo del 95%.':
+          'El área presenta desempeño por debajo del objetivo. Se requieren acciones correctivas inmediatas y un plan de mejora urgente.'}
+        ${nocumple.length?` Los indicadores con mayor área de oportunidad son: ${nocumple.slice(0,3).join(', ')}.`:''}
+        ${sinDato.length?` ${sinDato.length} indicador(es) sin dato en esta semana.`:''}
+        ${resp.length?` Responsable(s): ${resp.join(', ')}.`:''}
+      </p>
+      <div class="exec-pills">
+        ${cumple.slice(0,4).map(i=>`<span class="exec-pill ok">✓ ${i.length>30?i.substring(0,28)+'…':i}</span>`).join('')}
+        ${nocumple.slice(0,3).map(i=>`<span class="exec-pill bad">✗ ${i.length>30?i.substring(0,28)+'…':i}</span>`).join('')}
+        ${sinDato.length?`<span class="exec-pill" style="background:rgba(255,255,255,.15)">⬜ ${sinDato.length} sin dato</span>`:''}
+      </div>
+    </div>
+  `;
+}
+
+function areaEmoji(a) {
+  const map = {'Alto Valor':'💎','Devoluciones':'↩️','Embarques/Insumos':'🚚','Multialmacen/Reabasto':'🏭','Garantías':'🔧','Producción':'⚙️','Picking':'📦','Checado':'✅','Mesa De Control':'🖥️','Inventarios':'📊'};
+  return map[a] || '📋';
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => { if (n.dataset.page) n.classList.toggle('active', n.dataset.page === name); });
+  const pg = document.getElementById('page-' + name);
+  if (pg) pg.classList.add('active');
+}
+
+function showAreaDirect(area) {
+  SEL_AREA = area;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`[data-area="${area}"]`)?.classList.add('active');
+  showPage('areas');
+  renderAreas();
+}
+
+// ── PDF REPORT GENERATOR ──────────────────────────────────────────────────────
+function areaConclusion(a, aRows, aScore, prevScore) {
+  const cumple  = aRows.filter(r => { const c=evalCumplimiento(r.raw,r.obj,r.um); return c!==null && c>=0.98; });
+  const mal     = aRows.filter(r => { const c=evalCumplimiento(r.raw,r.obj,r.um); return c!==null && c<0.80; });
+  const sinDato = aRows.filter(r => toNum(r.raw)===null || r.raw===''||r.raw==='-');
+  const delta   = prevScore !== null ? aScore - prevScore : null;
+  const tendencia = delta === null ? '' : delta > 0.005 ? ' con tendencia positiva respecto a la semana anterior' : delta < -0.005 ? ' con tendencia negativa respecto a la semana anterior' : ' manteniendo un nivel similar al de la semana anterior';
+  let txt = `${areaEmoji(a)} <strong>${a}</strong> cerró ${SEL_WEEK} con un score ponderado de <strong>${(aScore*100).toFixed(1)}%</strong>${tendencia}. `;
+  if (aScore >= 0.95) txt += 'El área opera dentro del objetivo establecido. ';
+  else if (aScore >= 0.80) txt += 'El desempeño es parcial; se requiere seguimiento para alcanzar el objetivo del 95%. ';
+  else txt += 'El área está por debajo del objetivo; se requieren acciones correctivas inmediatas. ';
+  if (mal.length) txt += `Indicadores críticos: ${mal.map(r=>r.ind).slice(0,2).join(', ')}${mal.length>2?' y otros':''}. `;
+  if (sinDato.length) txt += `${sinDato.length} indicador(es) sin dato registrado. `;
+  const resp = [...new Set(aRows.map(r=>r.resp).filter(Boolean))];
+  if (resp.length) txt += `Responsable(s): ${resp.join(', ')}.`;
+  return txt;
+}
+
+function generarPDF() {
+  const totals      = getAreaTotals(SEL_WEEK);
+  const areas       = Object.keys(totals);
+  const scores      = areas.map(a => totals[a].sum);
+  const avgScore    = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
+  const bestArea    = areas[scores.indexOf(Math.max(...scores))];
+  const worstArea   = areas[scores.indexOf(Math.min(...scores))];
+  const withData    = DATA.filter(r => toNum(r['Resultado '+SEL_WEEK]) !== null).length;
+  const cumpleAreas = areas.filter(a => totals[a].sum >= 0.95);
+  const parcialAreas= areas.filter(a => totals[a].sum >= 0.80 && totals[a].sum < 0.95);
+  const nocumpleAreas=areas.filter(a => totals[a].sum < 0.80);
+  const fecha       = new Date().toLocaleDateString('es-MX', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const prevWeekIdx = WEEKS.indexOf(SEL_WEEK) - 1;
+
+  // ── helper: prev score for an area
+  const prevScore = (a) => prevWeekIdx >= 0
+    ? DATA.filter(r=>r['Área']===a).reduce((acc,r)=>acc+(toNum(r['Resultado '+WEEKS[prevWeekIdx]])||0),0)
+    : null;
+
+  // ── Sección 1: tabla semáforo compacta
+  const semaforo = areas.map(a => {
+    const s  = totals[a].sum;
+    const sc = s>=0.95?'#15803d':s>=0.80?'#b45309':'#b91c1c';
+    const bg = s>=0.95?'#dcfce7':s>=0.80?'#fef3c7':'#fee2e2';
+    const em = s>=0.95?'🟢':s>=0.80?'🟡':'🔴';
+    const bw = Math.min(100,(s*100)).toFixed(1);
+    const bc = s>=0.95?'#22c55e':s>=0.80?'#f59e0b':'#ef4444';
+    const pv = prevScore(a); const dv = pv!==null?s-pv:null;
+    const ds = dv!==null?`<span style="font-size:9px;font-weight:700;color:${dv>=0?'#15803d':'#b91c1c'}">${dv>=0?'▲':'▼'}${Math.abs(dv*100).toFixed(1)}%</span>`:'—';
+    return `<tr>
+      <td style="padding:5px 8px;border-bottom:1px solid #f0f0f0;font-size:10px;font-weight:600;color:#1a1d23;white-space:nowrap">${em} ${a}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #f0f0f0">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:5px;background:#e2e5ea;border-radius:3px;min-width:60px"><div style="width:${bw}%;height:100%;background:${bc};border-radius:3px"></div></div>
+          <span style="font-size:11px;font-weight:700;color:${sc};min-width:38px;text-align:right">${(s*100).toFixed(1)}%</span>
+        </div>
+      </td>
+      <td style="padding:5px 8px;border-bottom:1px solid #f0f0f0;text-align:center">${ds}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #f0f0f0;text-align:center"><span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:${bg};color:${sc}">${s>=0.95?'Cumple':s>=0.80?'Parcial':'No cumple'}</span></td>
+    </tr>`;
+  }).join('');
+
+  // ── Sección 2: detalle compacto por área (2 columnas de tabla + conclusión)
+  const kpiDetail = areas.map(a => {
+    const color  = AREA_COLORS[a]||'#888';
+    const aScore = totals[a]?.sum || 0;
+    const aRowsData = DATA.filter(r=>r['Área']===a).map(r => ({
+      ind: r['Indicador'], res: toNum(r['Resultado '+SEL_WEEK]),
+      pond: toNum(r['Ponderación']), obj: r['Objetivo'],
+      raw: r[SEL_WEEK], um: r['UM'], resp: r['Responsable']
+    }));
+    const pv = prevScore(a);
+
+    // Split indicadores into 2 columns
+    const half = Math.ceil(aRowsData.length / 2);
+    const col1 = aRowsData.slice(0, half);
+    const col2 = aRowsData.slice(half);
+
+    const renderCol = (rows) => rows.map(r => {
+      const cumpl = evalCumplimiento(r.raw, r.obj, r.um);
+      const sc = cumpl===null ? '#9ca3af' : cumpl>=0.98 ? '#15803d' : cumpl>=0.80 ? '#b45309' : '#b91c1c';
+      const dot = cumpl===null ? '⬜' : cumpl>=0.98 ? '🟢' : cumpl>=0.80 ? '🟡' : '🔴';
+      const vsObj = cumpl !== null ? `<span style="font-weight:700;color:${sc}">${(cumpl*100).toFixed(0)}%</span>` : '—';
+      const pond  = r.res !== null ? `${(r.res*100).toFixed(1)}%` : '—';
+      return `<tr>
+        <td style="padding:3px 5px;border-bottom:1px solid #f5f5f5;font-size:8.5px;color:#374151">${dot} ${r.ind}</td>
+        <td style="padding:3px 5px;border-bottom:1px solid #f5f5f5;font-size:8.5px;color:#6b7280;text-align:center;white-space:nowrap">${fmtObj(r.obj,r.um)}</td>
+        <td style="padding:3px 5px;border-bottom:1px solid #f5f5f5;font-size:8.5px;font-weight:600;color:#374151;text-align:center;white-space:nowrap">${fmtVal(r.raw,r.um)}</td>
+        <td style="padding:3px 5px;border-bottom:1px solid #f5f5f5;font-size:8.5px;text-align:center;white-space:nowrap">${vsObj}</td>
+        <td style="padding:3px 5px;border-bottom:1px solid #f5f5f5;font-size:8.5px;font-weight:700;color:${sc};text-align:right;white-space:nowrap">${pond}</td>
+      </tr>`;
+    }).join('');
+
+    const colHead = `<tr style="background:#f8f9fa">
+      <th style="padding:4px 5px;font-size:7.5px;color:#9ca3af;text-transform:uppercase;text-align:left;font-weight:700">Indicador</th>
+      <th style="padding:4px 5px;font-size:7.5px;color:#9ca3af;text-transform:uppercase;font-weight:700;text-align:center">Objetivo</th>
+      <th style="padding:4px 5px;font-size:7.5px;color:#9ca3af;text-transform:uppercase;font-weight:700;text-align:center">Resultado</th>
+      <th style="padding:4px 5px;font-size:7.5px;color:#9ca3af;text-transform:uppercase;font-weight:700;text-align:center">vs Obj.</th>
+      <th style="padding:4px 5px;font-size:7.5px;color:#9ca3af;text-transform:uppercase;font-weight:700;text-align:right">Pond.</th>
+    </tr>`;
+
+    const conclusion = areaConclusion(a, aRowsData, aScore, pv);
+
+    return `<div style="margin-bottom:10px;border:1px solid #e8e8e8;border-radius:7px;overflow:hidden;page-break-inside:avoid">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${color};color:#fff">
+        <span style="font-size:14px">${areaEmoji(a)}</span>
+        <span style="font-size:11px;font-weight:700;flex:1">${a}</span>
+        <span style="font-size:13px;font-weight:800">${(aScore*100).toFixed(1)}%</span>
+        <span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.25);font-weight:700">${aScore>=0.95?'✓ Cumple':aScore>=0.80?'⚠ Parcial':'✗ No cumple'}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid #f0f0f0">
+        <div style="border-right:1px solid #f0f0f0">
+          <table style="width:100%;border-collapse:collapse">${colHead}${renderCol(col1)}</table>
+        </div>
+        <div>
+          <table style="width:100%;border-collapse:collapse">${colHead}${renderCol(col2)}</table>
+        </div>
+      </div>
+      <div style="padding:6px 10px;background:#fafafa;font-size:9.5px;color:#374151;line-height:1.55;border-left:3px solid ${color}">
+        ${conclusion}
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Histórico compacto
+  const historico = WEEKS.length > 1 ? `
+  <div style="margin-bottom:12px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid #e2e5ea">Histórico de Scores por Área</div>
+    <table style="width:100%;border-collapse:collapse;font-size:9px">
+      <thead><tr style="background:#f8f9fa">
+        <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #e2e5ea;color:#6b7280;font-weight:700;text-transform:uppercase">Área</th>
+        ${WEEKS.map(w=>`<th style="padding:4px 8px;text-align:center;border-bottom:1px solid #e2e5ea;color:${w===SEL_WEEK?'#1e4db7':'#6b7280'};font-weight:700;text-transform:uppercase">${w.replace(' - 2026','')}</th>`).join('')}
+      </tr></thead>
+      <tbody>${areas.map(a=>`<tr>
+        <td style="padding:4px 8px;border-bottom:1px solid #f5f5f5;font-weight:600;font-size:9px">${a}</td>
+        ${WEEKS.map(w=>{const s=DATA.filter(r=>r['Área']===a).reduce((acc,r)=>acc+(toNum(r['Resultado '+w])||0),0);const isSel=w===SEL_WEEK;const c=s>=0.95?'#15803d':s>=0.80?'#b45309':'#b91c1c';return`<td style="padding:4px 8px;border-bottom:1px solid #f5f5f5;text-align:center;font-size:9px;font-weight:${isSel?'700':'400'};color:${c};background:${isSel?'#e8edfb':'#fff'}">${(s*100).toFixed(1)}%</td>`;}).join('')}
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>` : '';
+
+  // ── Exec text
+  const execText = `Durante ${SEL_WEEK}, el almacén registró un score general ponderado de <strong>${(avgScore*100).toFixed(1)}%</strong> con ${areas.length} áreas evaluadas y ${withData} de ${DATA.length} indicadores con dato. `
+    +(cumpleAreas.length?`<strong>${cumpleAreas.length}</strong> área(s) cumplieron el objetivo (≥95%): ${cumpleAreas.join(', ')}. `:'')
+    +(parcialAreas.length?`<strong>${parcialAreas.length}</strong> área(s) con desempeño parcial (80–94%): ${parcialAreas.join(', ')}. `:'')
+    +(nocumpleAreas.length?`<strong>${nocumpleAreas.length}</strong> área(s) requieren atención urgente (<80%): ${nocumpleAreas.join(', ')}. `:'')
+    +`Mejor área: <strong>${bestArea}</strong> (${(totals[bestArea]?.sum*100||0).toFixed(1)}%). Área con mayor oportunidad: <strong>${worstArea}</strong> (${(totals[worstArea]?.sum*100||0).toFixed(1)}%).`;
+
+  // ── HTML final
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Reporte Ejecutivo — ${SEL_WEEK}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1a1d23;background:#fff;font-size:10px}
+  @page{size:A4;margin:12mm 12mm}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none}}
+  .no-print{padding:14px 20px;text-align:center;border-bottom:1px solid #e2e5ea;margin-bottom:16px}
+  .wrap{padding:0 4px}
+  .sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:7px;padding-bottom:4px;border-bottom:1.5px solid #e2e5ea}
+  .sec{margin-bottom:14px}
+</style>
+</head><body>
+
+<div class="no-print">
+  <button onclick="window.print()" style="background:#1e4db7;color:#fff;border:none;padding:8px 24px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px">🖨 Imprimir / Guardar PDF</button>
+  <button onclick="window.close()" style="background:#f3f4f6;border:1px solid #d0d5dd;padding:8px 16px;border-radius:7px;font-size:13px;cursor:pointer">Cerrar</button>
+  <p style="margin-top:8px;font-size:11px;color:#6b7280">En el diálogo de impresión selecciona <strong>"Guardar como PDF"</strong> · Escala recomendada: 80–90%</p>
+</div>
+
+<div class="wrap">
+
+<!-- ENCABEZADO COMPACTO -->
+<div style="background:linear-gradient(135deg,#1e4db7 0%,#2563eb 100%);color:#fff;padding:16px 18px;border-radius:10px;margin-bottom:12px">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+    <div>
+      <div style="font-size:8px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-bottom:3px">MOBO México — Almacén</div>
+      <div style="font-size:18px;font-weight:800;line-height:1.1;margin-bottom:2px">Reporte Ejecutivo de KPIs</div>
+      <div style="font-size:11px;opacity:.85">${SEL_WEEK}</div>
+      <div style="font-size:9px;opacity:.6;margin-top:2px">${fecha}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:36px;font-weight:900;line-height:1">${(avgScore*100).toFixed(1)}%</div>
+      <div style="font-size:9px;opacity:.75">Score General</div>
+      <div style="margin-top:5px;font-size:9px;background:rgba(255,255,255,.2);padding:3px 10px;border-radius:20px;display:inline-block">${avgScore>=0.95?'✓ Objetivo cumplido':avgScore>=0.80?'⚠ Desempeño parcial':'✗ Requiere atención'}</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    ${[
+      ['Áreas evaluadas', areas.length, 'rgba(255,255,255,.15)'],
+      ['Indicadores con dato', `${withData}/${DATA.length}`, 'rgba(255,255,255,.15)'],
+      [`Cumplen ≥95%`, cumpleAreas.length, 'rgba(34,197,94,.3)'],
+      [`Parcial 80–94%`, parcialAreas.length, 'rgba(245,158,11,.3)'],
+      [`Atención <80%`, nocumpleAreas.length, 'rgba(239,68,68,.3)'],
+    ].map(([l,v,bg])=>`<div style="background:${bg};border-radius:8px;padding:7px 12px;min-width:90px"><div style="font-size:8px;opacity:.8;text-transform:uppercase;letter-spacing:.05em">${l}</div><div style="font-size:18px;font-weight:800">${v}</div></div>`).join('')}
+  </div>
+</div>
+
+<!-- 1. RESUMEN EJECUTIVO -->
+<div class="sec">
+  <div class="sec-title">1. Resumen Ejecutivo</div>
+  <div style="background:#f0f4ff;border-left:3px solid #1e4db7;border-radius:0 7px 7px 0;padding:9px 12px;font-size:10px;line-height:1.65;color:#374151">${execText}</div>
+  <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:7px">
+    ${cumpleAreas.map(a=>`<span style="font-size:9px;font-weight:700;padding:2px 9px;border-radius:20px;background:#dcfce7;color:#15803d">🟢 ${a}</span>`).join('')}
+    ${parcialAreas.map(a=>`<span style="font-size:9px;font-weight:700;padding:2px 9px;border-radius:20px;background:#fef3c7;color:#b45309">🟡 ${a}</span>`).join('')}
+    ${nocumpleAreas.map(a=>`<span style="font-size:9px;font-weight:700;padding:2px 9px;border-radius:20px;background:#fee2e2;color:#b91c1c">🔴 ${a}</span>`).join('')}
+  </div>
+</div>
+
+<!-- 2. SEMÁFORO POR ÁREA -->
+<div class="sec">
+  <div class="sec-title">2. Resultado Ponderado por Área</div>
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:#f8f9fa">
+      <th style="padding:5px 8px;text-align:left;font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase;border-bottom:1.5px solid #e2e5ea">Área</th>
+      <th style="padding:5px 8px;text-align:left;font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase;border-bottom:1.5px solid #e2e5ea">Score ponderado</th>
+      <th style="padding:5px 8px;text-align:center;font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase;border-bottom:1.5px solid #e2e5ea">Vs. sem. ant.</th>
+      <th style="padding:5px 8px;text-align:center;font-size:8px;color:#6b7280;font-weight:700;text-transform:uppercase;border-bottom:1.5px solid #e2e5ea">Estado</th>
+    </tr></thead>
+    <tbody>${semaforo}</tbody>
+  </table>
+</div>
+
+<!-- 3. DETALLE + CONCLUSIÓN POR ÁREA -->
+<div class="sec">
+  <div class="sec-title">3. Indicadores y Conclusión por Área</div>
+  ${kpiDetail}
+</div>
+
+<!-- 4. HISTÓRICO -->
+${historico}
+
+<!-- PIE -->
+<div style="padding:8px 0;border-top:1px solid #e2e5ea;display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+  <span style="font-size:8px;color:#9ca3af">MOBO México — Tablero de Indicadores Almacén</span>
+  <span style="font-size:8px;color:#9ca3af">${SEL_WEEK} · Generado: ${fecha}</span>
+  <span style="font-size:8px;color:#9ca3af">Confidencial</span>
+</div>
+
+</div>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { alert('Permite las ventanas emergentes para generar el PDF'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+loadData();
+</script>
+
+<!-- UPDATE BANNER -->
+<div id="update-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e4db7;color:#fff;padding:12px 24px;align-items:center;gap:14px;z-index:200;font-size:13px;">
+  <span>⚠ Mostrando datos embebidos. Para ver datos actualizados, pega el CSV de Google Sheets.</span>
+  <button onclick="document.getElementById('csv-modal').style.display='flex'" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Actualizar datos</button>
+  <button onclick="document.getElementById('update-banner').style.display='none'" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:18px;">×</button>
+</div>
+
+<!-- CSV MODAL -->
+<div id="csv-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:600px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div style="font-size:16px;font-weight:700;color:#1a1d23;">Actualizar datos desde Google Sheets</div>
+      <button onclick="document.getElementById('csv-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9ca3af;">×</button>
+    </div>
+    <div style="background:#f0f4ff;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#374151;line-height:1.7;">
+      <strong>Pasos para actualizar:</strong><br>
+      1. Abre tu hoja en Google Sheets<br>
+      2. Menú <strong>Archivo → Descargar → CSV</strong><br>
+      3. Abre el archivo descargado con un editor de texto (Bloc de notas, TextEdit)<br>
+      4. Copia todo el contenido (Ctrl+A, Ctrl+C)<br>
+      5. Pégalo aquí abajo y haz clic en <strong>Cargar</strong>
+    </div>
+    <textarea id="csv-paste" placeholder="Pega el contenido CSV aquí..." style="width:100%;height:160px;border:1px solid #d0d5dd;border-radius:8px;padding:12px;font-size:12px;font-family:monospace;resize:vertical;outline:none;"></textarea>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button onclick="loadFromCSV(document.getElementById('csv-paste').value)" style="flex:1;background:#1e4db7;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Cargar datos</button>
+      <button onclick="document.getElementById('csv-modal').style.display='none'" style="padding:10px 20px;border:1px solid #d0d5dd;border-radius:8px;cursor:pointer;background:#fff;font-size:14px;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
