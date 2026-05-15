@@ -48,27 +48,15 @@ exports.handler = async (event) => {
   }
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return {
-        statusCode: 500, headers,
-        body: JSON.stringify({ error: 'GEMINI_API_KEY no configurada en Netlify' })
-      };
-    }
+    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyAQcWP6tTcpt_jmavBIDxt8B_xkHA3cFfM';
 
     const body = JSON.parse(event.body);
 
-    // Convert to Gemini format
     const contents = [];
-
-    // Add system prompt as first exchange
     if (body.system) {
       contents.push({ role: 'user',  parts: [{ text: body.system }] });
       contents.push({ role: 'model', parts: [{ text: 'Entendido. Listo para analizar los KPIs.' }] });
     }
-
-    // Add conversation history
     for (const m of (body.messages || [])) {
       contents.push({
         role: m.role === 'assistant' ? 'model' : 'user',
@@ -82,7 +70,6 @@ exports.handler = async (event) => {
     };
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
     const result = await httpsPost(url, geminiBody);
 
     if (result.status !== 200) {
@@ -93,7 +80,6 @@ exports.handler = async (event) => {
     }
 
     const text = result.data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sin respuesta.';
-
     return {
       statusCode: 200, headers,
       body: JSON.stringify({ content: [{ type: 'text', text }] })
