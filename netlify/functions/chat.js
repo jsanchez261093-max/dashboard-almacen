@@ -48,7 +48,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyAQcWP6tTcpt_jmavBIDxt8B_xkHA3cFfM';
+    const apiKey = process.env.GEMINI_API_KEY;
 
     const body = JSON.parse(event.body);
 
