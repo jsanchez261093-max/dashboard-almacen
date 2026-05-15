@@ -1594,12 +1594,10 @@ INSTRUCCIONES:
 - Si no hay datos suficientes para responder, dilo claramente
 - Puedes hacer recomendaciones basadas en los datos`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/.netlify/functions/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
         system: systemPrompt,
         messages: chatHistory
       })
@@ -1609,7 +1607,7 @@ INSTRUCCIONES:
 
     if (!response.ok) {
       const err = await response.json().catch(()=>({}));
-      throw new Error(err.error?.message || `HTTP ${response.status}`);
+      throw new Error(err.error || `HTTP ${response.status}`);
     }
 
     const data = await response.json();
@@ -1622,9 +1620,9 @@ INSTRUCCIONES:
   } catch(e) {
     removeTyping(typingId);
     let errMsg = '❌ Error al conectar con el asistente.';
-    if (e.message.includes('401')) errMsg = '🔑 API key inválida o no configurada.';
-    else if (e.message.includes('429')) errMsg = '⏳ Límite de uso alcanzado. Intenta en un momento.';
-    else if (e.message.includes('Failed to fetch')) errMsg = '🌐 Sin conexión. Verifica tu red.';
+    if (e.message.includes('401') || e.message.includes('403')) errMsg = '🔑 API key de Gemini inválida o no configurada en Netlify.';
+    else if (e.message.includes('429')) errMsg = '⏳ Límite de uso alcanzado (1,500/día). Intenta mañana.';
+    else if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) errMsg = '🌐 Sin conexión con el servidor. Verifica que la Netlify Function esté desplegada.';
     appendMsg(errMsg, 'ai');
     document.getElementById('chat-status').textContent = 'Error — intenta de nuevo';
   }
