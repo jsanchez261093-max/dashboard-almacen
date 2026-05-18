@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tablero de Indicadores — MOBO</title>
+<title>Tablero de Indicadores — Almacén</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script>
@@ -168,15 +168,9 @@
 <body>
 
 <nav>
-  <div class="nav-logo">📦 KPIs MOBO</div>
-  <div id="nav-dept" class="nav-sub">Almacén</div>
+  <div class="nav-logo">📦 Almacén KPIs</div>
+  <div class="nav-sub">Tablero de Indicadores</div>
   <div class="nav-right">
-    <div style="display:flex;gap:4px;align-items:center">
-      <span style="font-size:11px;color:var(--text3)">Dept:</span>
-      <select id="dept-select" onchange="changeDept(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text2);cursor:pointer">
-        <option value="0">📦 Almacén</option>
-      </select>
-    </div>
     <span id="last-updated">Cargando datos…</span>
     <button class="refresh-btn" id="refresh-btn" onclick="refreshNow()">↻ Actualizar</button><button class="refresh-btn" onclick="document.getElementById('csv-modal').style.display='flex'" style="margin-left:4px">📋 Pegar CSV</button>
     <span class="nav-badge" id="week-badge">—</span>
@@ -202,47 +196,29 @@
   <!-- OVERVIEW PAGE -->
   <div class="page" id="page-overview">
     <div class="page-header">
-      <div id="overview-title" class="page-title">Vista General — Almacén</div>
+      <div class="page-title">Vista General del Almacén</div>
       <div class="page-sub">Resumen ejecutivo de todos los indicadores por área y semana</div>
-      <div class="week-header-row" style="margin-top:10px;flex-wrap:wrap;gap:8px;">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:11px;color:var(--text3)">Vista:</span>
-          <button class="wtab active" id="ov-view-semana" onclick="setOvView('semana')" style="padding:4px 12px">📅 Semana</button>
-          <button class="wtab" id="ov-view-mes" onclick="setOvView('mes')" style="padding:4px 12px">🗓 Mes</button>
-          <button class="wtab" id="ov-view-anio" onclick="setOvView('anio')" style="padding:4px 12px">📆 Año</button>
-          <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
-          <button class="wtab" id="ov-lbl-btn" onclick="toggleOvLabels()" style="padding:4px 12px">🏷 Etiquetas: OFF</button>
-          <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
-          <span style="font-size:11px;color:var(--text3)">Rango:</span>
-          <div id="ov-range-tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-        </div>
+      <div class="week-header-row">
+        <div class="week-tabs" id="week-tabs-overview"></div>
         <button class="pdf-btn" onclick="generarPDF()">⬇ Reporte PDF</button>
       </div>
     </div>
 
     <div class="grid-4" id="overview-metrics"></div>
 
-    <!-- Annual result card -->
-    <div id="annual-card-wrap" style="margin-bottom:16px;display:none">
-      <div class="card" style="border-top:3px solid var(--blue)">
-        <div class="section-title">Resultado Anual Acumulado</div>
-        <div id="annual-card-content"></div>
-      </div>
-    </div>
-
     <div class="grid-2">
       <div class="card">
-        <div class="section-title" id="ov-areas-title">Resultado Ponderado por Área</div>
-        <div class="chart-wrap" style="height:280px"><canvas id="chart-areas" role="img"></canvas></div>
+        <div class="section-title">Resultado Ponderado por Área</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart-areas" role="img" aria-label="Gráfica de barras: resultado ponderado por área"></canvas></div>
       </div>
       <div class="card">
-        <div class="section-title" id="ov-trend-title">Evolución — General</div>
-        <div class="chart-wrap" style="height:280px"><canvas id="chart-trend" role="img"></canvas></div>
+        <div class="section-title">Evolución Semanal — General</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart-trend" role="img" aria-label="Gráfica de tendencia semanal general"></canvas></div>
       </div>
     </div>
 
     <div class="card" style="margin-bottom:20px">
-      <div class="section-title" id="ov-semaforo-title">Semáforo de Áreas</div>
+      <div class="section-title">Semáforo de Áreas — Semana Seleccionada</div>
       <div class="gauge-grid" id="semaforo-grid"></div>
     </div>
 
@@ -260,17 +236,9 @@
       <div class="page-sub">Detalle de KPIs, objetivos y resultados ponderados por área operativa</div>
       <div class="week-tabs" id="week-tabs-areas"></div>
     </div>
+
     <div class="area-tabs" id="area-selector"></div>
     <div id="area-detail-content"></div>
-  </div>
-
-  <!-- ALMACÉN PAGE (non-ponderating section) -->
-  <div class="page" id="page-almacen">
-    <div class="page-header">
-      <div class="page-title">Almacén — Indicadores Informativos</div>
-      <div class="page-sub">Estos indicadores no ponderan. Son de carácter informativo y de seguimiento operativo.</div>
-    </div>
-    <div id="almacen-content"></div>
   </div>
 
   <!-- AREA PAGES (individual) -->
@@ -293,32 +261,16 @@ const AREA_COLORS_LIGHT = {
   'Picking':'#e0f2fe','Checado':'#d1fae5','Mesa De Control':'#fef3c7','Inventarios':'#f3f4f6'
 };
 
-// ── Global state ─────────────────────────────────────────────────────────────
-let DATA = [], WEEKS = [], SEL_WEEK = '', SEL_AREA = '';
-let chartAreas = null, chartTrend = null, areaCharts = {};
-
-// Department support
-let DEPTS = [];          // [{name, sheetIndex, color}]
-let SEL_DEPT = 0;        // current dept index
-
-// Overview view mode: 'semana' | 'mes' | 'anio'
-let OV_VIEW = 'semana';
-let OV_SEL_WEEK = '';    // for semana mode
-let OV_SEL_MES = '';     // for mes mode  e.g. 'Ene 2026'
-let OV_RANGE = null;     // null=all, or N weeks
-let OV_LABELS = false;   // data labels toggle
-
-// Month names
-const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+let DATA = [], WEEKS = [], SEL_WEEK = '', SEL_AREA = '', chartAreas = null, chartTrend = null, areaCharts = {};
 
 function parseCSV(text) {
   const lines = text.split('\n').filter(l => l.trim());
   if (!lines.length) return [];
-
-  // Row 0 = headers (Área, Indicador, Objetivo, UM, ...)
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
-
-  function splitLine(line) {
+  // If first row is "Fecha Semana" dates row, skip it — use row 1 as headers
+  const firstVal = lines[0].split(',')[0].trim().replace(/^"|"$/g,'');
+  const start   = firstVal === 'Fecha Semana' ? 1 : 0;
+  const headers = lines[start].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return lines.slice(start + 1).map(line => {
     const vals = [];
     let cur = '', inQ = false;
     for (let c of line) {
@@ -327,13 +279,8 @@ function parseCSV(text) {
       else cur += c;
     }
     vals.push(cur.trim());
-    return vals;
-  }
-
-  return lines.slice(1).map(line => {
-    const vals = splitLine(line);
     const obj = {};
-    headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
+    headers.forEach((h, i) => obj[h] = vals[i] || '');
     return obj;
   });
 }
@@ -430,113 +377,21 @@ function statusLabel(pct) {
 // Legacy alias
 function fmtRaw(v, um) { return fmtVal(v, um); }
 
-// ── ISO Week → Date calculation (no Fecha Semana row needed) ───────────────
-// ISO standard: Jan 4 is always in week 1. Week starts on Monday.
-function isoWeekMonday(year, week) {
-  const jan4    = new Date(year, 0, 4);
-  const dow     = jan4.getDay() || 7;          // Mon=1 … Sun=7
-  const w1Mon   = new Date(jan4);
-  w1Mon.setDate(jan4.getDate() - (dow - 1));   // Monday of week 1
-  const result  = new Date(w1Mon);
-  result.setDate(w1Mon.getDate() + (week - 1) * 7);
-  return result;
-}
-
-// Parse "Semana 21 - 2026" → Date (Monday of that week)
-function weekKeyToDate(weekKey) {
-  const m = weekKey.match(/Semana\s+(\d+)\s*-\s*(\d+)/);
-  if (!m) return null;
-  return isoWeekMonday(parseInt(m[2]), parseInt(m[1]));
-}
-
-function weekToDate(weekKey) { return weekKeyToDate(weekKey); }
-
-function weekToMonthKey(weekKey) {
-  const d = weekKeyToDate(weekKey);
-  if (!d) return null;
-  return MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
-}
-
-function getMonths() {
-  const seen = new Map();
-  WEEKS.forEach(w => {
-    const mk = weekToMonthKey(w);
-    if (mk && !seen.has(mk)) seen.set(mk, w);
-  });
-  return [...seen.keys()];
-}
-
-function getWeeksForMonth(monthKey) {
-  return WEEKS.filter(w => weekToMonthKey(w) === monthKey);
-}
-
 function processRows(rows) {
-  // Filter out any leftover Fecha Semana rows (in case sheet still has them)
-  DATA = rows.filter(r =>
-    r['Área'] && r['Área'].trim() &&
-    r['Área'] !== 'Fecha Semana' &&
-    r['Indicador'] && r['Indicador'].trim()
-  );
-
+  DATA = rows.filter(r => r['Área'] && r['Área'].trim() && r['Indicador'] && r['Indicador'].trim());
   WEEKS = [];
   const headers = Object.keys(DATA[0] || {});
   headers.forEach(h => { if (/^Semana \d+ - \d+$/.test(h)) WEEKS.push(h); });
-
-  SEL_WEEK   = WEEKS[WEEKS.length - 1] || '';
-  OV_SEL_WEEK = SEL_WEEK;
-  SEL_AREA   = getNonAlmacenAreas()[0] || '';
-
+  SEL_WEEK = WEEKS[WEEKS.length - 1] || '';
+  SEL_AREA = [...new Set(DATA.map(r => r['Área']))][0] || '';
   renderAll();
-  document.getElementById('last-updated').textContent =
-    '🟢 En vivo · ' + new Date().toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
-  document.getElementById('week-badge').textContent =
-    SEL_WEEK.replace('Semana ', 'S');
-}
-
-// Average ponderado score across weeks (for month/year view)
-// ── Area / indicator helpers ─────────────────────────────────────────────────
-function getNonAlmacenAreas() {
-  return [...new Set(DATA.filter(r => r['Área'] !== 'Almacén').map(r => r['Área']))];
-}
-function getAlmacenRows() {
-  return DATA.filter(r => r['Área'] === 'Almacén');
-}
-function isNoPondera(r) {
-  return String(r['Objetivo']||'').trim() === 'No Pondera' || String(r['Ponderación']||'').trim() === '';
-}
-function isGroupTarget(r) {
-  return r['Grupo'] && r['Grupo'].trim() !== '';
-}
-
-function avgAreaScore(area, weekList) {
-  const rows = DATA.filter(r => r['Área'] === area && !isNoPondera(r) && !isGroupTarget(r));
-  const weekScores = weekList
-    .map(w => rows.reduce((acc, r) => acc + (toNum(r['Resultado '+w])||0), 0))
-    .filter(s => s > 0);
-  if (!weekScores.length) return 0;
-  return weekScores.reduce((a,b)=>a+b,0) / weekScores.length;
-}
-
-// Get totals for a specific week (existing function kept compatible)
-function getAreaTotals(week) {
-  const map = {};
-  DATA.filter(r => r['Área'] !== 'Almacén' && !isNoPondera(r) && !isGroupTarget(r))
-    .forEach(r => {
-      const area = r['Área'];
-      const res = toNum(r['Resultado ' + week]);
-      if (!map[area]) map[area] = { sum: 0, count: 0 };
-      if (res !== null) map[area].sum += res;
-      map[area].count++;
-    });
-  return map;
+  const now = new Date();
+  document.getElementById('last-updated').textContent = 'Actualizado: ' + now.toLocaleTimeString('es-MX');
+  document.getElementById('week-badge').textContent = SEL_WEEK.replace('Semana ','S');
 }
 
 function parseCSVtoRows(text) {
-  return parseCSV(text).filter(r =>
-    r['Área'] && r['Área'].trim() &&
-    r['Área'] !== 'Fecha Semana' &&
-    r['Indicador'] && r['Indicador'].trim()
-  );
+  return parseCSV(text).filter(r => r['Área'] && r['Área'].trim() && r['Indicador'] && r['Indicador'].trim());
 }
 
 async function refreshNow() {
@@ -551,33 +406,16 @@ async function loadData() {
   document.getElementById('loader').innerHTML = '<div class="spinner"></div>Conectando con Google Sheets…';
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
-  // ── 1. Try CSV published URL (primary for GitHub Pages) ─────────────────
+  // ── 1. Try Apps Script JSON API (primary — no CORS issues) ──────────────
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(CSV_URL + '&t=' + Date.now(), { signal: ctrl.signal });
+    const res = await fetch(API_URL, { signal: ctrl.signal });
     clearTimeout(tid);
     if (res.ok) {
-      const text = await res.text();
-      const rows = parseCSVtoRows(text);
-      if (rows.length > 0) {
-        processRows(rows);
-        document.getElementById('last-updated').textContent = '🟢 En vivo · ' + new Date().toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
-        document.getElementById('update-banner').style.display = 'none';
-        return;
-      }
-    }
-  } catch(e) { /* fall through */ }
-
-  // ── 2. Try Apps Script JSON API (fallback) ───────────────────────────────
-  try {
-    const ctrl2 = new AbortController();
-    const tid2 = setTimeout(() => ctrl2.abort(), 6000);
-    const res2 = await fetch(API_URL, { signal: ctrl2.signal });
-    clearTimeout(tid2);
-    if (res2.ok) {
-      const json = await res2.json();
+      const json = await res.json();
       if (json.ok && json.rows && json.rows.length > 0) {
+        // Convert all values to strings to match CSV behaviour
         const rows = json.rows.map(r => {
           const clean = {};
           Object.keys(r).forEach(k => { clean[k] = r[k] === null || r[k] === undefined ? '' : String(r[k]); });
@@ -587,6 +425,24 @@ async function loadData() {
         const t = new Date(json.updated);
         document.getElementById('last-updated').textContent =
           '🟢 En vivo · ' + t.toLocaleDateString('es-MX', {day:'2-digit',month:'short'}) + ' ' + t.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
+        document.getElementById('update-banner').style.display = 'none';
+        return;
+      }
+    }
+  } catch(e) { /* fall through */ }
+
+  // ── 2. Try CSV published URL (fallback) ─────────────────────────────────
+  try {
+    const ctrl2 = new AbortController();
+    const tid2 = setTimeout(() => ctrl2.abort(), 5000);
+    const res2 = await fetch(CSV_URL, { signal: ctrl2.signal });
+    clearTimeout(tid2);
+    if (res2.ok) {
+      const text = await res2.text();
+      const rows = parseCSVtoRows(text);
+      if (rows.length > 0) {
+        processRows(rows);
+        document.getElementById('last-updated').textContent = '🟡 CSV · ' + new Date().toLocaleTimeString('es-MX');
         document.getElementById('update-banner').style.display = 'none';
         return;
       }
@@ -627,295 +483,144 @@ function getAreaTotals(week) {
 function renderAll() {
   document.getElementById('loader').style.display = 'none';
   renderSidebarAreas();
-  renderOvRangeTabs();
   renderWeekTabs();
   renderOverview();
   renderAreas();
-  renderAlmacen();
   showPage('overview');
 }
 
 function renderSidebarAreas() {
-  const areas = getNonAlmacenAreas();
+  const areas = [...new Set(DATA.map(r => r['Área']))];
   const container = document.getElementById('area-nav-items');
-  // Regular areas
-  let html = areas.map(a => `
+  container.innerHTML = areas.map(a => `
     <div class="nav-item" onclick="showAreaDirect('${a}')" data-area="${a}">
       <div class="nav-dot" style="background:${AREA_COLORS[a]||'#888'}"></div>
       <span style="font-size:12px">${a}</span>
-    </div>`).join('');
-  // Almacén section separator
-  if (getAlmacenRows().length > 0) {
-    html += `<div style="height:8px"></div>
-    <div class="sidebar-label" style="padding-top:8px">Almacén</div>
-    <div class="nav-item" onclick="showPage('almacen')" data-page="almacen">
-      <div class="nav-dot" style="background:#6b7280"></div>
-      <span style="font-size:12px">Indicadores Informativos</span>
-    </div>`;
-  }
-  container.innerHTML = html;
-}
-
-// ── Overview range tabs ──────────────────────────────────────────────────────
-function renderOvRangeTabs() {
-  const el = document.getElementById('ov-range-tabs');
-  if (!el) return;
-  if (OV_VIEW !== 'semana') { el.innerHTML = ''; return; }
-  const ranges = ['4','8','12','26','52','Todo'];
-  el.innerHTML = ranges.map(n => `
-    <button class="wtab ${(!OV_RANGE && n==='Todo') || OV_RANGE===parseInt(n) ? 'active':''}"
-      style="padding:4px 10px" onclick="setOvRange('${n}')">
-      ${n==='Todo'?'Todo':n+' sem.'}
-    </button>`).join('');
-}
-
-function setOvRange(n) {
-  OV_RANGE = n === 'Todo' ? null : parseInt(n);
-  renderOvRangeTabs();
-  renderOverview();
-}
-
-function setOvView(v) {
-  OV_VIEW = v;
-  ['semana','mes','anio'].forEach(x => {
-    document.getElementById('ov-view-'+x)?.classList.toggle('active', x===v);
-  });
-  renderOvRangeTabs();
-  renderOverview();
-}
-
-function toggleOvLabels() {
-  OV_LABELS = !OV_LABELS;
-  const btn = document.getElementById('ov-lbl-btn');
-  if (btn) {
-    btn.textContent = OV_LABELS ? '🏷 Etiquetas: ON' : '🏷 Etiquetas: OFF';
-    btn.style.background = OV_LABELS ? 'var(--blue)' : '';
-    btn.style.color = OV_LABELS ? '#fff' : '';
-    btn.style.borderColor = OV_LABELS ? 'var(--blue)' : '';
-  }
-  renderOverview();
+    </div>
+  `).join('');
 }
 
 function renderWeekTabs() {
-  // Areas page week tabs (semana only)
-  const el = document.getElementById('week-tabs-areas');
-  if (el) {
-    el.innerHTML = WEEKS.map(w =>
-      `<div class="wtab ${w===SEL_WEEK?'active':''}" onclick="selectWeek('${w}','areas')">${w.replace(' - 2026','')}</div>`
-    ).join('');
-  }
+  ['overview','areas'].forEach(pg => {
+    const el = document.getElementById(`week-tabs-${pg}`);
+    if (!el) return;
+    el.innerHTML = WEEKS.map(w => `<div class="wtab ${w===SEL_WEEK?'active':''}" onclick="selectWeek('${w}','${pg}')">${w}</div>`).join('');
+  });
 }
 
 function selectWeek(w, pg) {
   SEL_WEEK = w;
-  OV_SEL_WEEK = w;
   document.getElementById('week-badge').textContent = w.replace('Semana ','S');
   renderWeekTabs();
-  if (pg === 'areas') renderAreas();
+  if (pg === 'overview') renderOverview();
+  else renderAreas();
 }
 
-// ── renderOverview — supports semana / mes / año modes ────────────────────────
 function renderOverview() {
-  const areas = getNonAlmacenAreas();
-  let labels, areaScores, trendLabels, trendData, periodLabel;
+  const totals = getAreaTotals(SEL_WEEK);
+  const areas = Object.keys(totals);
+  const scores = areas.map(a => totals[a].sum);
+  const avgScore = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
+  const bestArea = areas[scores.indexOf(Math.max(...scores))];
+  const worstArea = areas[scores.indexOf(Math.min(...scores))];
+  const totalIndicators = DATA.length;
+  const withData = DATA.filter(r => toNum(r['Resultado '+SEL_WEEK]) !== null).length;
 
-  if (OV_VIEW === 'semana') {
-    // Apply range filter
-    const filteredWeeks = OV_RANGE ? WEEKS.slice(-OV_RANGE) : WEEKS;
-    const latestWeek = filteredWeeks[filteredWeeks.length - 1] || SEL_WEEK;
-    OV_SEL_WEEK = latestWeek;
+  // Metrics
+  document.getElementById('overview-metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Score General</div><div class="metric-value" style="color:${avgScore>=0.95?'var(--green)':avgScore>=0.80?'var(--amber)':'var(--red)'}">${(avgScore*100).toFixed(1)}%</div><div class="metric-sub">${SEL_WEEK}</div></div>
+    <div class="metric"><div class="metric-label">Áreas Evaluadas</div><div class="metric-value">${areas.length}</div><div class="metric-sub">de ${areas.length} totales</div></div>
+    <div class="metric"><div class="metric-label">Indicadores con Dato</div><div class="metric-value">${withData}</div><div class="metric-sub">de ${totalIndicators} totales</div></div>
+    <div class="metric"><div class="metric-label">Mejor Área</div><div class="metric-value" style="font-size:16px;line-height:1.3">${bestArea||'—'}</div><div class="metric-sub" style="color:var(--green)">${bestArea?((totals[bestArea].sum)*100).toFixed(1)+'%':''}</div></div>
+  `;
 
-    const totals = getAreaTotals(latestWeek);
-    labels = areas;
-    areaScores = areas.map(a => parseFloat(((totals[a]?.sum||0)*100).toFixed(2)));
-    trendLabels = filteredWeeks.map(w => w.replace(/ - \d{4}/,''));
-    trendData = filteredWeeks.map(w => {
-      const t = getAreaTotals(w);
-      const vals = Object.values(t).map(v=>v.sum);
-      return vals.length ? parseFloat(((vals.reduce((a,b)=>a+b,0)/vals.length)*100).toFixed(2)) : null;
-    });
-    periodLabel = latestWeek;
-
-    const avgScore = areaScores.length ? areaScores.reduce((a,b)=>a+b,0)/areaScores.length : 0;
-    const bestArea = areas[areaScores.indexOf(Math.max(...areaScores))];
-    const worstArea = areas[areaScores.indexOf(Math.min(...areaScores))];
-    const withData = DATA.filter(r => r['Área']!=='Almacén' && !isNoPondera(r) && toNum(r['Resultado '+latestWeek]) !== null).length;
-    const totalInd  = DATA.filter(r => r['Área']!=='Almacén' && !isNoPondera(r)).length;
-
-    document.getElementById('overview-metrics').innerHTML = `
-      <div class="metric"><div class="metric-label">Score General</div><div class="metric-value" style="color:${avgScore/100>=0.95?'var(--green)':avgScore/100>=0.80?'var(--amber)':'var(--red)'}">${avgScore.toFixed(1)}%</div><div class="metric-sub">${latestWeek.replace(' - 2026','')}</div></div>
-      <div class="metric"><div class="metric-label">Áreas</div><div class="metric-value">${areas.length}</div><div class="metric-sub">evaluadas</div></div>
-      <div class="metric"><div class="metric-label">Indicadores c/dato</div><div class="metric-value">${withData}</div><div class="metric-sub">de ${totalInd}</div></div>
-      <div class="metric"><div class="metric-label">Mejor Área</div><div class="metric-value" style="font-size:15px;line-height:1.3">${bestArea||'—'}</div><div class="metric-sub" style="color:var(--green)">${bestArea?areaScores[areas.indexOf(bestArea)].toFixed(1)+'%':''}</div></div>
-    `;
-
-    renderOvSemaforo(areas, areaScores);
-    renderOvExec('semana', areas, areaScores, periodLabel, bestArea, worstArea);
-    document.getElementById('annual-card-wrap').style.display = 'none';
-
-  } else if (OV_VIEW === 'mes') {
-    const months = getMonths();
-    labels = months;
-    areaScores = areas.map(a => {
-      // Average of last month
-      const lastMonth = months[months.length-1];
-      return parseFloat((avgAreaScore(a, getWeeksForMonth(lastMonth))*100).toFixed(2));
-    });
-    trendLabels = months;
-    trendData = months.map(m => {
-      const ws = getWeeksForMonth(m);
-      const allScores = areas.map(a => avgAreaScore(a, ws));
-      return parseFloat(((allScores.reduce((a,b)=>a+b,0)/allScores.length)*100).toFixed(2));
-    });
-    periodLabel = months[months.length-1] || '';
-
-    const avgScore = areaScores.reduce((a,b)=>a+b,0)/(areaScores.length||1);
-    const bestArea = areas[areaScores.indexOf(Math.max(...areaScores))];
-    const worstArea = areas[areaScores.indexOf(Math.min(...areaScores))];
-    document.getElementById('overview-metrics').innerHTML = `
-      <div class="metric"><div class="metric-label">Score Mensual</div><div class="metric-value" style="color:${avgScore/100>=0.95?'var(--green)':avgScore/100>=0.80?'var(--amber)':'var(--red)'}">${avgScore.toFixed(1)}%</div><div class="metric-sub">${periodLabel}</div></div>
-      <div class="metric"><div class="metric-label">Meses con Dato</div><div class="metric-value">${months.length}</div><div class="metric-sub">semanas: ${WEEKS.length}</div></div>
-      <div class="metric"><div class="metric-label">Mejor Área</div><div class="metric-value" style="font-size:15px">${bestArea||'—'}</div><div class="metric-sub" style="color:var(--green)">${bestArea?areaScores[areas.indexOf(bestArea)].toFixed(1)+'%':''}</div></div>
-      <div class="metric"><div class="metric-label">Área de Oportunidad</div><div class="metric-value" style="font-size:15px">${worstArea||'—'}</div><div class="metric-sub" style="color:var(--red)">${worstArea?areaScores[areas.indexOf(worstArea)].toFixed(1)+'%':''}</div></div>
-    `;
-    renderOvSemaforo(areas, areaScores);
-    renderOvExec('mes', areas, areaScores, periodLabel, bestArea, worstArea);
-    document.getElementById('annual-card-wrap').style.display = 'none';
-
-  } else { // anio
-    const months = getMonths();
-    labels = areas;
-    areaScores = areas.map(a => parseFloat((avgAreaScore(a, WEEKS)*100).toFixed(2)));
-    trendLabels = months;
-    trendData = months.map(m => {
-      const ws = getWeeksForMonth(m);
-      const allScores = areas.map(a => avgAreaScore(a, ws));
-      return parseFloat(((allScores.reduce((a,b)=>a+b,0)/allScores.length)*100).toFixed(2));
-    });
-    const avgScore = areaScores.reduce((a,b)=>a+b,0)/(areaScores.length||1);
-    const bestArea = areas[areaScores.indexOf(Math.max(...areaScores))];
-    const worstArea = areas[areaScores.indexOf(Math.min(...areaScores))];
-    periodLabel = 'Año completo';
-
-    document.getElementById('overview-metrics').innerHTML = `
-      <div class="metric"><div class="metric-label">Score Anual</div><div class="metric-value" style="color:${avgScore/100>=0.95?'var(--green)':avgScore/100>=0.80?'var(--amber)':'var(--red)'}">${avgScore.toFixed(1)}%</div><div class="metric-sub">${WEEKS.length} semanas</div></div>
-      <div class="metric"><div class="metric-label">Meses</div><div class="metric-value">${months.length}</div><div class="metric-sub">con datos</div></div>
-      <div class="metric"><div class="metric-label">Mejor Área Anual</div><div class="metric-value" style="font-size:15px">${bestArea||'—'}</div><div class="metric-sub" style="color:var(--green)">${bestArea?areaScores[areas.indexOf(bestArea)].toFixed(1)+'%':''}</div></div>
-      <div class="metric"><div class="metric-label">Área c/Mayor Oportunidad</div><div class="metric-value" style="font-size:15px">${worstArea||'—'}</div><div class="metric-sub" style="color:var(--red)">${worstArea?areaScores[areas.indexOf(worstArea)].toFixed(1)+'%':''}</div></div>
-    `;
-    renderOvSemaforo(areas, areaScores);
-    renderOvExec('anio', areas, areaScores, periodLabel, bestArea, worstArea);
-
-    // Annual card
-    document.getElementById('annual-card-wrap').style.display = 'block';
-    document.getElementById('annual-card-content').innerHTML = `
-      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px">
-        ${areas.map(a => {
-          const s = areaScores[areas.indexOf(a)];
-          const c = s/100>=0.95?'var(--green)':s/100>=0.80?'var(--amber)':'var(--red)';
-          const em = s/100>=0.95?'🟢':s/100>=0.80?'🟡':'🔴';
-          return `<div style="background:var(--bg);border-radius:8px;padding:10px 14px;min-width:140px;border:1px solid var(--border)">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${em} ${a}</div>
-            <div style="font-size:20px;font-weight:700;color:${c}">${s.toFixed(1)}%</div>
-            <div style="font-size:10px;color:var(--text3)">promedio anual</div>
-          </div>`;
-        }).join('')}
-      </div>`;
-  }
-
-  // Update section titles
-  const modeLabel = OV_VIEW==='semana' ? periodLabel.replace(' - 2026','') : OV_VIEW==='mes' ? 'por Mes' : 'Anual';
-  document.getElementById('ov-areas-title').textContent = `Resultado Ponderado por Área — ${modeLabel}`;
-  document.getElementById('ov-trend-title').textContent = OV_VIEW==='semana' ? 'Evolución Semanal' : OV_VIEW==='mes' ? 'Evolución Mensual' : 'Evolución por Mes';
-  document.getElementById('ov-semaforo-title').textContent = `Semáforo de Áreas — ${modeLabel}`;
-  document.getElementById('overview-title').textContent = `Vista General — ${OV_VIEW==='semana'?'Semana':OV_VIEW==='mes'?'Por Mes':'Anual'}`;
-
-  // Build datalabels config
-  const dlCfg = OV_LABELS ? {
-    anchor:'end', align:'top', offset:2, font:{size:9,weight:'600'},
-    color:'#374151', formatter: v => v===null?'':Math.round(v*10)/10+'%',
-    display: ctx => ctx.dataset.data[ctx.dataIndex] !== null
-  } : { display: false };
-
-  // Chart by area (bar)
+  // Chart by area
   const ctx1 = document.getElementById('chart-areas').getContext('2d');
   if (chartAreas) chartAreas.destroy();
   chartAreas = new Chart(ctx1, {
     type: 'bar',
     data: {
-      labels,
-      datasets: [{ label: 'Score', data: areaScores,
-        backgroundColor: areas.map(a => AREA_COLORS[a]||'#888'), borderRadius: 5 }]
+      labels: areas,
+      datasets: [{
+        label: 'Resultado ponderado',
+        data: scores.map(s => parseFloat((s*100).toFixed(2))),
+        backgroundColor: areas.map(a => AREA_COLORS[a]||'#888'),
+        borderRadius: 5
+      }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend:{display:false}, datalabels: dlCfg },
+      plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { font:{size:10}, maxRotation:30 } },
-        y: { min:0, max:100, ticks: { callback: v => Math.round(v)+'%', font:{size:11} }, grid:{color:'#f0f0f0'} }
+        x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
+        y: { min: 0, max: 100, ticks: { callback: v => Math.round(v)+'%', font: { size: 11 } }, grid: { color: '#f0f0f0' } }
       }
     }
   });
 
-  // Trend chart (line)
+  // Trend chart
   const ctx2 = document.getElementById('chart-trend').getContext('2d');
   if (chartTrend) chartTrend.destroy();
+  const trendData = WEEKS.map(w => {
+    const t = getAreaTotals(w);
+    const vals = Object.values(t).map(v => v.sum);
+    return vals.length ? parseFloat(((vals.reduce((a,b)=>a+b,0)/vals.length)*100).toFixed(2)) : null;
+  });
   chartTrend = new Chart(ctx2, {
     type: 'line',
     data: {
-      labels: trendLabels,
-      datasets: [{ label: 'Score promedio', data: trendData,
-        borderColor:'#1e4db7', backgroundColor:'rgba(30,77,183,.08)',
-        borderWidth:2, pointRadius:5, tension:0.3, fill:true }]
+      labels: WEEKS.map(w => w.replace(' - 2026','')),
+      datasets: [{
+        label: 'Score promedio',
+        data: trendData,
+        borderColor: '#1e4db7', backgroundColor: 'rgba(30,77,183,.08)',
+        borderWidth: 2, pointRadius: 5, tension: 0.3, fill: true
+      }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend:{display:false}, datalabels: OV_LABELS ? {...dlCfg, anchor:'top', align:'top'} : {display:false} },
+      plugins: { legend: { display: false } },
       scales: {
-        y: { min:0, max:100, ticks:{ callback: v => Math.round(v)+'%', font:{size:11} }, grid:{color:'#f0f0f0'} },
-        x: { ticks:{font:{size:11}} }
+        y: { min: 0, max: 100, ticks: { callback: v => Math.round(v)+'%', font: { size: 11 } }, grid: { color: '#f0f0f0' } },
+        x: { ticks: { font: { size: 11 } } }
       }
     }
   });
-}
 
-function renderOvSemaforo(areas, scores) {
-  document.getElementById('semaforo-grid').innerHTML = areas.map((a,i) => {
-    const pct = scores[i]/100;
-    const color = pct>=0.95?'var(--green)':pct>=0.80?'var(--amber)':'var(--red)';
-    const emoji = pct>=0.95?'🟢':pct>=0.80?'🟡':'🔴';
+  // Semáforo
+  document.getElementById('semaforo-grid').innerHTML = areas.map(a => {
+    const score = totals[a].sum;
+    const pct = score;
+    const color = pct >= 0.95 ? 'var(--green)' : pct >= 0.80 ? 'var(--amber)' : 'var(--red)';
+    const emoji = pct >= 0.95 ? '🟢' : pct >= 0.80 ? '🟡' : '🔴';
     return `<div class="gauge-card">
       <div class="gauge-title">${a}</div>
-      <div class="gauge-val" style="color:${color}">${scores[i].toFixed(1)}%</div>
+      <div class="gauge-val" style="color:${color}">${(pct*100).toFixed(1)}%</div>
       <div class="gauge-label">${emoji} ${statusLabel(pct)}</div>
     </div>`;
   }).join('');
-}
 
-function renderOvExec(mode, areas, scores, periodLabel, bestArea, worstArea) {
-  const avg = scores.reduce((a,b)=>a+b,0)/(scores.length||1);
-  const cumple = areas.filter((_,i)=>scores[i]/100>=0.95);
-  const parcial = areas.filter((_,i)=>scores[i]/100>=0.80&&scores[i]/100<0.95);
-  const nocumple = areas.filter((_,i)=>scores[i]/100<0.80);
-  const modeStr = mode==='semana'?`en ${periodLabel}`:mode==='mes'?`en ${periodLabel}`:periodLabel;
+  // Exec summary
+  const cumple = areas.filter(a => totals[a].sum >= 0.95);
+  const parcial = areas.filter(a => totals[a].sum >= 0.80 && totals[a].sum < 0.95);
+  const nocumple = areas.filter(a => totals[a].sum < 0.80);
   document.getElementById('exec-overview-text').textContent =
-    `${modeStr}: score general ponderado de ${avg.toFixed(1)}%, ${areas.length} áreas evaluadas. `+
-    (cumple.length?`${cumple.length} área(s) cumplen (≥95%): ${cumple.join(', ')}. `:'')+
-    (parcial.length?`${parcial.length} área(s) parcial (80–94%): ${parcial.join(', ')}. `:'')+
-    (nocumple.length?`${nocumple.length} área(s) requieren atención (<80%): ${nocumple.join(', ')}. `:'')+
-    (bestArea?`Mejor: ${bestArea} (${scores[areas.indexOf(bestArea)].toFixed(1)}%). Oportunidad: ${worstArea} (${scores[areas.indexOf(worstArea)].toFixed(1)}%).`:'');
+    `Durante ${SEL_WEEK}, el almacén registró un score general ponderado de ${(avgScore*100).toFixed(1)}%, con ${areas.length} áreas evaluadas. ` +
+    (cumple.length ? `${cumple.length} área(s) alcanzaron el objetivo (≥95%): ${cumple.join(', ')}. ` : '') +
+    (parcial.length ? `${parcial.length} área(s) presentaron desempeño parcial (80–94%): ${parcial.join(', ')}. ` : '') +
+    (nocumple.length ? `${nocumple.length} área(s) requieren atención urgente (<80%): ${nocumple.join(', ')}. ` : '') +
+    `El área con mejor resultado fue ${bestArea} (${(totals[bestArea]?.sum*100||0).toFixed(1)}%) y la de menor desempeño fue ${worstArea} (${(totals[worstArea]?.sum*100||0).toFixed(1)}%).`;
   document.getElementById('exec-overview-pills').innerHTML =
-    cumple.map(a=>`<span class="exec-pill ok">✓ ${a}</span>`).join('')+
-    parcial.map(a=>`<span class="exec-pill warn">⚠ ${a}</span>`).join('')+
-    nocumple.map(a=>`<span class="exec-pill bad">✗ ${a}</span>`).join('');
+    cumple.map(a => `<span class="exec-pill ok">✓ ${a}</span>`).join('') +
+    parcial.map(a => `<span class="exec-pill warn">⚠ ${a}</span>`).join('') +
+    nocumple.map(a => `<span class="exec-pill bad">✗ ${a}</span>`).join('');
 }
 
 function renderAreas() {
-  const areas = getNonAlmacenAreas();
+  const areas = [...new Set(DATA.map(r => r['Área']))];
+  // Area selector tabs
   document.getElementById('area-selector').innerHTML = areas.map(a => `
-    <div class="atab ${a===SEL_AREA?'active':''}"
-      style="${a===SEL_AREA?`background:${AREA_COLORS[a]};color:#fff;border-color:${AREA_COLORS[a]}`:''}"
-      onclick="selectArea('${a}')">${a}</div>
+    <div class="atab ${a===SEL_AREA?'active':''}" style="${a===SEL_AREA?`background:${AREA_COLORS[a]};color:#fff;border-color:${AREA_COLORS[a]}`:''}" onclick="selectArea('${a}')">${a}</div>
   `).join('');
   renderAreaDetail(SEL_AREA);
 }
@@ -923,98 +628,6 @@ function renderAreas() {
 function selectArea(a) {
   SEL_AREA = a;
   renderAreas();
-}
-
-// ── Almacén page (non-ponderating indicators) ─────────────────────────────────
-function renderAlmacen() {
-  const rows = getAlmacenRows().filter(r => !isGroupTarget(r));
-  if (!rows.length) return;
-  const color = '#6b7280';
-
-  // Table
-  let html = `<div class="card" style="margin-bottom:16px;border-top:3px solid ${color}">
-    <div class="section-title" style="margin-bottom:12px">Indicadores — ${SEL_WEEK}</div>
-    <div class="tbl-wrap"><table>
-      <thead><tr>
-        <th>Indicador</th><th>UM</th><th>Objetivo</th><th>Resultado</th><th>Responsable</th>
-      </tr></thead>
-      <tbody>
-        ${rows.map(r => {
-          const val = fmtVal(r[SEL_WEEK], r['UM']);
-          const objLabel = isNoPondera(r) ? '<span style="color:var(--text3);font-style:italic">No Pondera</span>' : fmtObj(r['Objetivo'], r['UM']);
-          return `<tr>
-            <td style="font-weight:500;color:var(--text)">${r['Indicador']}</td>
-            <td style="color:var(--text3);font-size:10px">${fmtUM(r['UM'])}</td>
-            <td>${objLabel}</td>
-            <td style="font-weight:600">${val}</td>
-            <td style="color:var(--text3);font-size:11px">${r['Responsable']||'—'}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table></div>
-  </div>
-
-  <!-- Historical charts for Almacén indicators -->
-  <div class="section-title" style="margin-bottom:12px">Histórico por Indicador</div>
-  <div class="ind-charts-grid" id="almacen-charts-grid">
-    ${rows.filter(r=>!isNoPondera(r)).map((_,i)=>`<div class="ind-chart-card" id="alm-card-${i}"></div>`).join('')}
-  </div>
-
-  <div class="exec-box" style="background:linear-gradient(135deg,#374151,#6b7280);margin-top:16px">
-    <h3>📋 Sección Almacén</h3>
-    <p>Esta sección contiene ${rows.length} indicadores informativos del área de Almacén. No ponderan en el score general y se presentan únicamente como referencia operativa.</p>
-  </div>`;
-
-  document.getElementById('almacen-content').innerHTML = html;
-
-  // Render charts for non-No-Pondera Almacén indicators
-  setTimeout(() => {
-    const chartRows = rows.filter(r => !isNoPondera(r));
-    chartRows.forEach((r, i) => {
-      const el = document.getElementById(`alm-card-${i}`);
-      if (!el) return;
-      const hVals = WEEKS.map(w => {
-        const v = r[w];
-        if (!v || String(v).trim()==='' || String(v).trim()==='-') return null;
-        const n = parseFloat(String(v).replace(/[%,]/g,''));
-        return isNaN(n) ? null : (umType(r['UM'])==='pct' ? Math.round(n*1000)/10 : Math.round(n*100)/100);
-      });
-      const isPct = umType(r['UM'])==='pct';
-      const {min:yMin, max:yMax, stepSize} = smartYAxis(hVals,[],false);
-      el.innerHTML = `
-        <div class="ind-chart-header">
-          <div class="ind-chart-title">${r['Indicador']}</div>
-          <span class="badge badge-na" style="background:var(--surface2);color:var(--text3)">Informativo</span>
-        </div>
-        <div class="ind-chart-meta">
-          <span class="ind-meta-item"><span class="ind-meta-label">Resultado</span><span class="ind-meta-val">${fmtVal(r[SEL_WEEK],r['UM'])}</span></span>
-          <span class="ind-meta-item"><span class="ind-meta-label">UM</span><span class="ind-meta-val" style="color:var(--text3)">${fmtUM(r['UM'])}</span></span>
-        </div>
-        <div class="chart-wrap" style="height:100px"><canvas id="alm-chart-${i}"></canvas></div>`;
-      setTimeout(() => {
-        const canvas = document.getElementById(`alm-chart-${i}`);
-        if (!canvas) return;
-        new Chart(canvas.getContext('2d'), {
-          type: 'line',
-          data: {
-            labels: WEEKS.map(w=>w.replace(/ - \d{4}/,'')),
-            datasets: [{
-              data: hVals, borderColor:'#6b7280', backgroundColor:'rgba(107,114,128,.1)',
-              borderWidth:2, pointRadius:4, tension:0.3, fill:true, spanGaps:false
-            }]
-          },
-          options: {
-            responsive:true, maintainAspectRatio:false,
-            plugins:{legend:{display:false}, datalabels:{display:false}},
-            scales:{
-              y:{min:yMin,max:yMax,ticks:{font:{size:8},stepSize,callback:v=>isPct?Math.round(v)+'%':v},grid:{color:'#f0f0f0'}},
-              x:{ticks:{font:{size:8}}}
-            }
-          }
-        });
-      }, 50);
-    });
-  }, 80);
 }
 
 // ── Chart type selector by UM ──────────────────────────────────────────────
@@ -1058,40 +671,21 @@ function safeId(s) { return s.replace(/[^a-z0-9]/gi,'_'); }
 
 function renderAreaDetail(area) {
   const rows = DATA.filter(r => r['Área'] === area);
-  const allRows = DATA;
-  const color  = AREA_COLORS[area] || '#888';
+  const allRows = DATA; // needed for CDC cross-ref
+  const color = AREA_COLORS[area] || '#888';
   const colorLight = AREA_COLORS_LIGHT[area] || '#f3f4f6';
 
-  // Separate: display rows (not CDC helper, not group targets), and group target rows
-  const displayRows = rows.filter(r =>
-    r['Indicador'] !== 'CDC Semana Trabajada' && !isGroupTarget(r)
-  );
-  const groupTargetRows = rows.filter(r => isGroupTarget(r)); // these are targets for other indicators
-
-  const weekRes = displayRows.map(r => ({
-    ind: r['Indicador'],
-    res: toNum(r['Resultado '+SEL_WEEK]),
-    raw: r[SEL_WEEK],
-    pond: toNum(r['Ponderación']),
-    obj: r['Objetivo'],
-    um: r['UM'],
-    resp: r['Responsable'],
-    noPondera: isNoPondera(r),
-    // Find matching group target row for this indicator
-    targetRow: groupTargetRows.find(t => t['Grupo'] === r['Indicador']) || null,
-    _row: r
-  }));
-
-  // Only ponderating rows contribute to score
-  const totalPond = displayRows
-    .filter(r => !isNoPondera(r))
-    .reduce((s,r) => s + (toNum(r['Resultado '+SEL_WEEK])||0), 0);
-
+  const weekRes = rows
+    .filter(r => r['Indicador'] !== 'CDC Semana Trabajada') // hide helper row from table
+    .map(r => ({
+      ind: r['Indicador'], res: toNum(r['Resultado '+SEL_WEEK]),
+      raw: r[SEL_WEEK], pond: toNum(r['Ponderación']),
+      obj: r['Objetivo'], um: r['UM'], resp: r['Responsable'],
+      _row: r
+    }));
+  const totalPond = rows.reduce((s,r) => s + (toNum(r['Resultado '+SEL_WEEK])||0), 0);
   const trendLabels = WEEKS.map(w => w.replace(/ - \d{4}/,''));
-  const trendVals   = WEEKS.map(w =>
-    parseFloat((displayRows.filter(r=>!isNoPondera(r))
-      .reduce((acc,r)=>acc+(toNum(r['Resultado '+w])||0),0)*100).toFixed(2))
-  );
+  const trendVals = WEEKS.map(w => parseFloat((rows.reduce((acc,r)=>acc+(toNum(r['Resultado '+w])||0),0)*100).toFixed(2)));
 
   // Build per-indicator chart cards HTML
   const indCharts = weekRes.map((r, idx) => {
@@ -1167,17 +761,6 @@ function renderAreaDetail(area) {
               <thead><tr><th>Indicador</th><th>UM</th><th>Objetivo</th><th>Resultado</th><th>vs Obj.</th><th>% Pond.</th><th>Res. Ponderado</th><th>Estado</th></tr></thead>
               <tbody>
                 ${weekRes.map(r => {
-                  if (r.noPondera) {
-                    // Non-ponderating row — simplified display
-                    return `<tr style="opacity:.8;background:var(--surface2)">
-                      <td style="font-weight:500;color:var(--text)">${r.ind}</td>
-                      <td style="color:var(--text3);font-size:10px">${fmtUM(r.um)}</td>
-                      <td><span style="font-size:11px;color:var(--text3);font-style:italic">No Pondera</span></td>
-                      <td style="font-weight:600">${fmtVal(r.raw,r.um)}</td>
-                      <td colspan="3" style="color:var(--text3);font-size:11px;font-style:italic">Informativo</td>
-                      <td><span class="badge badge-na">Informativo</span></td>
-                    </tr>`;
-                  }
                   const cumpl = evalCumplimiento(r.raw, r.obj, r.um);
                   const status = cumpl !== null ? statusColor(cumpl) : (r.res !== null ? statusColor(r.res / (r.pond||1)) : 'na');
                   const label  = cumpl !== null ? statusLabel(cumpl) : (r.res !== null ? statusLabel(r.res/(r.pond||1)) : '—');
@@ -1188,8 +771,7 @@ function renderAreaDetail(area) {
                     ? (() => { const e=getEffectiveObj(r._row,allRows); return e!==null?(e*100).toFixed(1)+'%':'—'; })()
                     : fmtObj(r.obj, r.um);
                   return `<tr>
-                    <td style="font-weight:500;color:var(--text);max-width:170px">${r.ind}${r.targetRow?` <span style="font-size:9px;color:var(--blue);margin-left:4px">+ Target</span>`:''}
-                    </td>
+                    <td style="font-weight:500;color:var(--text);max-width:170px">${r.ind}</td>
                     <td style="color:var(--text3);font-size:10px;white-space:nowrap">${fmtUM(r.um)}</td>
                     <td style="color:var(--text3);white-space:nowrap">${effObjDisp}</td>
                     <td style="white-space:nowrap;font-weight:600">${fmtVal(r.raw,r.um)}</td>
@@ -1210,7 +792,17 @@ function renderAreaDetail(area) {
           <div class="tbl-wrap">
             <table>
               <thead><tr><th>Semana</th><th>Score</th><th>Δ</th></tr></thead>
-              <tbody id="historico-tbody-${safeId(area)}">
+              <tbody>
+                ${WEEKS.map((w,i) => {
+                  const s = rows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+w])||0),0);
+                  const prev = i>0?rows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+WEEKS[i-1]])||0),0):null;
+                  const delta = prev!==null?s-prev:null;
+                  return `<tr style="${w===SEL_WEEK?'background:var(--blue-light)':''}">
+                    <td style="font-weight:${w===SEL_WEEK?'700':'400'}">${w}</td>
+                    <td><div class="prog-wrap"><div class="prog"><div class="prog-fill prog-${statusColor(s)}" style="width:${Math.min(100,(s*100)).toFixed(1)}%"></div></div><span style="font-size:11px;min-width:44px;text-align:right">${(s*100).toFixed(1)}%</span></div></td>
+                    <td>${delta!==null?`<span style="font-size:11px;font-weight:600;color:${delta>=0?'var(--green)':'var(--red)'}">${delta>=0?'▲':'▼'} ${Math.abs(delta*100).toFixed(1)}%</span>`:'—'}</td>
+                  </tr>`;
+                }).join('')}
               </tbody>
             </table>
           </div>
@@ -1235,9 +827,9 @@ function renderAreaDetail(area) {
 
   // Store area data for re-rendering on range change
   window._areaChartData = window._areaChartData || {};
-  window._areaChartData[safeId(area)] = { area, rows: displayRows, weekRes, allRows, color, trendLabels, trendVals };
+  window._areaChartData[safeId(area)] = { area, rows, weekRes, allRows, color, trendLabels, trendVals };
   window._areaWeekRange = window._areaWeekRange || {};
-  window._areaWeekRange[safeId(area)] = window._areaWeekRange[safeId(area)] ?? null;
+  window._areaWeekRange[safeId(area)] = null; // null = all
 
   renderAreaCharts(safeId(area));
 }
@@ -1299,40 +891,23 @@ function smartYAxis(vals, targets, lb) {
 function renderAreaCharts(areaKey) {
   const d = window._areaChartData?.[areaKey];
   if (!d) return;
-  const { area, rows, weekRes, allRows, color } = d;
-  const rangeN     = window._areaWeekRange?.[areaKey] ?? null;
+  const { area, rows, weekRes, allRows, color, trendLabels, trendVals } = d;
+  const rangeN = window._areaWeekRange?.[areaKey] ?? null;
   const showLabels = window._areaLabels?.[areaKey] ?? false;
 
+  // Label formatter — clean number without excess decimals
   const labelFmt = (val, isPct) => {
     if (val === null || val === undefined) return '';
     if (isPct) return Math.round(val * 10) / 10 + '%';
     return Number.isInteger(val) ? val : +val.toFixed(2);
   };
 
-  const filteredWeeks  = rangeN ? WEEKS.slice(-rangeN) : WEEKS;
+  // Apply week range filter
+  const filteredWeeks = rangeN ? WEEKS.slice(-rangeN) : WEEKS;
   const filteredLabels = filteredWeeks.map(w => w.replace(/ - \d{4}/,''));
-
-  // Only ponderating rows for trend
-  const pondRows = rows.filter(r => !isNoPondera(r) && !isGroupTarget(r));
   const filteredTrendVals = filteredWeeks.map(w =>
-    parseFloat((pondRows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+w])||0),0)*100).toFixed(2))
+    parseFloat((rows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+w])||0),0)*100).toFixed(2))
   );
-
-  // Populate histórico tbody
-  const tbody = document.getElementById(`historico-tbody-${areaKey}`);
-  if (tbody) {
-    tbody.innerHTML = filteredWeeks.map((w, i) => {
-      const s    = pondRows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+w])||0),0);
-      const prevW = filteredWeeks[i-1];
-      const prev  = prevW ? pondRows.reduce((acc,r2)=>acc+(toNum(r2['Resultado '+prevW])||0),0) : null;
-      const delta = prev !== null ? s - prev : null;
-      return `<tr style="${w===SEL_WEEK?'background:var(--blue-light)':''}">
-        <td style="font-weight:${w===SEL_WEEK?'700':'400'}">${w.replace(/ - \d{4}/,'')}</td>
-        <td><div class="prog-wrap"><div class="prog"><div class="prog-fill prog-${statusColor(s)}" style="width:${Math.min(100,(s*100)).toFixed(1)}%"></div></div><span style="font-size:11px;min-width:44px;text-align:right">${(s*100).toFixed(1)}%</span></div></td>
-        <td>${delta!==null?`<span style="font-size:11px;font-weight:600;color:${delta>=0?'var(--green)':'var(--red)'}">${delta>=0?'▲':'▼'} ${Math.abs(delta*100).toFixed(1)}%</span>`:'—'}</td>
-      </tr>`;
-    }).join('');
-  }
 
   setTimeout(() => {
     // 1. Area trend chart
@@ -1340,11 +915,14 @@ function renderAreaCharts(areaKey) {
     if (areaEl) {
       Chart.getChart(areaEl)?.destroy();
       new Chart(areaEl.getContext('2d'), {
-        type:'line',
-        data:{ labels:filteredLabels, datasets:[{ label:area, data:filteredTrendVals,
-          borderColor:color, backgroundColor:color+'18', borderWidth:2, pointRadius:5, tension:0.3, fill:true }]},
-        options:{ responsive:true, maintainAspectRatio:false,
-          plugins:{ legend:{display:false}, datalabels:{display:false} },
+        type: 'line',
+        data: { labels: filteredLabels, datasets: [{
+          label: area, data: filteredTrendVals,
+          borderColor: color, backgroundColor: color+'18',
+          borderWidth: 2, pointRadius: 5, tension: 0.3, fill: true
+        }]},
+        options: { responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
           scales:{
             y:{ min:0, max:100, ticks:{callback:v=>Math.round(v)+'%',font:{size:10}}, grid:{color:'#f0f0f0'} },
             x:{ ticks:{font:{size:10}} }
@@ -1353,94 +931,187 @@ function renderAreaCharts(areaKey) {
       });
     }
 
-    // 2. Per-indicator charts (skip noPondera)
+    // 2. Per-indicator charts
     weekRes.forEach((r, idx) => {
-      if (r.noPondera) return;
       const cid = `indchart_${areaKey}_${idx}`;
-      const el  = document.getElementById(cid);
+      const el = document.getElementById(cid);
       if (!el) return;
+
+      // Destroy previous instance
       Chart.getChart(el)?.destroy();
 
-      const ctype  = chartTypeForUM(r.um);
-      const lb     = isLowerBetter(r.um);
-      const tPct   = umType(r.um) === 'pct' || ctype === 'line_avance';
+      const ctype = chartTypeForUM(r.um);
+      const lb = isLowerBetter(r.um);
+      // For % and avance types, raw values are 0-1 decimals → multiply by 100
+      // For SLA/días/prod, raw values are already in their native unit
+      const tPct = umType(r.um) === 'pct' || ctype === 'line_avance';
       const iColor = AREA_COLORS[area] || '#1e4db7';
 
+      // Build values for the filtered week range
+      // KEY FIX: use hasOwnProperty check — 0 is a valid value, only null/''/'-' are missing
       const hVals = filteredWeeks.map(w => {
         const raw = r._row[w];
+        // Treat empty string, '-', undefined, null as missing; 0 is valid!
         if (raw === undefined || raw === null || raw === '' || String(raw).trim() === '-') return null;
         const n = parseFloat(String(raw).replace(/[%,]/g,''));
         if (isNaN(n)) return null;
-        return tPct ? Math.round(n*1000)/10 : Math.round(n*100)/100;
+        // Round to 1 decimal to avoid floating-point noise on axis labels
+        return tPct ? Math.round(n * 1000) / 10 : Math.round(n * 100) / 100;
       });
 
       const hTargets = filteredWeeks.map((w,wi) => {
-        const eo = getEffectiveObjForWeek(r._row, allRows, WEEKS.indexOf(w));
+        const globalWi = WEEKS.indexOf(w);
+        const eo = getEffectiveObjForWeek(r._row, allRows, globalWi);
         if (eo === null) return null;
-        return tPct ? Math.round(eo*1000)/10 : Math.round(eo*100)/100;
+        return tPct ? Math.round(eo * 1000) / 10 : Math.round(eo * 100) / 100;
       });
 
-      // Group target dataset (e.g. Presupuesto vs Gasto real)
-      const hGroupTarget = r.targetRow ? filteredWeeks.map(w => {
-        const raw = r.targetRow[w];
-        if (!raw || String(raw).trim()==='' || String(raw).trim()==='-') return null;
-        const n = parseFloat(String(raw).replace(/[%,]/g,''));
-        return isNaN(n) ? null : (tPct ? Math.round(n*1000)/10 : Math.round(n*100)/100);
-      }) : null;
+      const hasAnyVal = hVals.some(v => v !== null);
+      if (!hasAnyVal) return;
 
-      if (!hVals.some(v=>v!==null)) return;
-
-      const cumplRatio = (val,tgt) => {
-        if (val===null||tgt===null||tgt===0) return null;
-        return lb?(val<=tgt?1:tgt/val):(val>=tgt?1:val/tgt);
+      const cumplRatio = (val, tgt) => {
+        if (val===null || tgt===null || tgt===0) return null;
+        return lb ? (val<=tgt ? 1 : tgt/val) : (val>=tgt ? 1 : val/tgt);
       };
-      const cumplColor = (val,tgt) => {
-        const ratio=cumplRatio(val,tgt);
-        if(ratio===null) return iColor+'99';
+      const cumplColor = (val, tgt) => {
+        const ratio = cumplRatio(val, tgt);
+        if (ratio===null) return iColor+'99';
         return ratio>=0.95?'#22c55e':ratio>=0.80?'#f59e0b':'#ef4444';
       };
-      const fmtTip = v => v===null?'S/D':(tPct?Math.round(v*10)/10+'%':(Number.isInteger(v)?v:+v.toFixed(2)));
-      const {min:yMin,max:yMax,stepSize} = smartYAxis(hVals,[...hTargets,...(hGroupTarget||[])],lb);
 
+      const fmtTip = v => {
+        if (v === null) return 'S/D';
+        if (tPct) return Math.round(v * 10) / 10 + '%';
+        return Number.isInteger(v) ? v : +v.toFixed(2);
+      };
+      const { min: yMin, max: yMax, stepSize } = smartYAxis(hVals, hTargets, lb);
+
+      // Shared datalabels config (only Resultado dataset, index 0)
       const dlPlugin = showLabels ? {
-        anchor:'end', align:'top', offset:2, font:{size:9,weight:'600'}, color:'#374151',
-        formatter: val=>val===null?'':labelFmt(val,tPct),
-        display: ctx=>ctx.datasetIndex===0&&ctx.dataset.data[ctx.dataIndex]!==null
-      } : { display:false };
+        anchor: 'end', align: 'top', offset: 2,
+        font: { size: 9, weight: '600' },
+        color: '#374151',
+        formatter: val => val === null ? '' : labelFmt(val, tPct),
+        display: ctx => ctx.datasetIndex === 0 && ctx.dataset.data[ctx.dataIndex] !== null
+      } : { display: false };
 
-      const isBar = ctype==='bar_sla'||ctype==='bar_prod';
-      const cumplColors = hVals.map((v,i)=>cumplColor(v,hTargets[i]));
-
-      const datasets = isBar ? [
-        { type:'bar', label:'Resultado', data:hVals, backgroundColor:hVals.map((v,i)=>cumplColor(v,hTargets[i])), borderRadius:4, barPercentage:0.6 },
-        { type:'line', label:'Target', data:hTargets, borderColor:'#ef4444', borderDash:[4,3], borderWidth:2, pointRadius:3, fill:false, spanGaps:true }
-      ] : [
-        { label:'Resultado', data:hVals, borderColor:iColor, backgroundColor:iColor+'22', borderWidth:2, pointRadius:5, pointBackgroundColor:cumplColors, pointBorderColor:'#fff', pointBorderWidth:1, tension:0.3, fill:true, spanGaps:false },
-        { label:'Target', data:hTargets, borderColor:'#ef4444', borderDash:[5,3], borderWidth:2, pointRadius:3, pointStyle:'crossRot', fill:false, spanGaps:true }
-      ];
-      if (hGroupTarget) {
-        datasets.push({ type:'line', label:r.targetRow['Indicador']||'Presupuesto', data:hGroupTarget, borderColor:'#6d28d9', borderDash:[6,3], borderWidth:2, pointRadius:3, pointStyle:'triangle', fill:false, spanGaps:true });
-      }
-
-      new Chart(el.getContext('2d'), {
-        type: isBar ? 'bar' : 'line',
-        data: { labels:filteredLabels, datasets },
-        options: {
-          responsive:true, maintainAspectRatio:false,
-          plugins:{
-            legend:{ display:!!hGroupTarget, position:'top', labels:{font:{size:9},boxWidth:12} },
-            tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmtTip(ctx.parsed.y) }},
-            datalabels: dlPlugin
+      if (ctype === 'bar_sla' || ctype === 'bar_prod') {
+        const barColors = hVals.map((v,i) => cumplColor(v, hTargets[i]));
+        new Chart(el.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: filteredLabels,
+            datasets: [
+              { label: 'Resultado', data: hVals, backgroundColor: barColors, borderRadius: 4, barPercentage: 0.6 },
+              { label: 'Target', data: hTargets, type:'line', borderColor:'#ef4444',
+                borderDash:[4,3], borderWidth:2, pointRadius:3,
+                pointBackgroundColor:'#ef4444', fill:false, spanGaps:true }
+            ]
           },
-          scales:{
-            x:{ ticks:{font:{size:9}}, grid:{color:'#f0f0f0'} },
-            y:{ min:yMin, max:yMax, ticks:{font:{size:9},stepSize, callback:v=>tPct?Math.round(v)+'%':(Number.isInteger(v)?v:+v.toFixed(2))}, grid:{color:'#f0f0f0'} }
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{display:false},
+              tooltip:{ callbacks:{ label: ctx => ctx.dataset.label+': '+fmtTip(ctx.parsed.y) }},
+              datalabels: dlPlugin
+            },
+            scales:{
+              x:{ ticks:{font:{size:9}}, grid:{color:'#f0f0f0'} },
+              y:{ min: yMin, max: yMax,
+                ticks:{ font:{size:9}, stepSize,
+                  callback: v => tPct ? Math.round(v)+'%' : (Number.isInteger(v) ? v : +v.toFixed(2)) },
+                grid:{color:'#f0f0f0'} }
+            }
           }
-        }
-      });
+        });
+
+      } else {
+        // Line chart
+        const cumplColors = hVals.map((v,i) => cumplColor(v, hTargets[i]));
+        new Chart(el.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: filteredLabels,
+            datasets: [
+              { label: 'Resultado', data: hVals,
+                borderColor: iColor, backgroundColor: iColor+'22',
+                borderWidth: 2, pointRadius: 5,
+                pointBackgroundColor: cumplColors,
+                pointBorderColor:'#fff', pointBorderWidth:1,
+                tension: 0.3, fill: true, spanGaps: false },
+              { label: 'Target', data: hTargets,
+                borderColor:'#ef4444', borderDash:[5,3],
+                borderWidth:2, pointRadius:3, pointStyle:'crossRot',
+                fill:false, spanGaps:true }
+            ]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{display:false},
+              tooltip:{ callbacks:{ label: ctx => ctx.dataset.label+': '+fmtTip(ctx.parsed.y) }},
+              datalabels: dlPlugin
+            },
+            scales:{
+              y:{ min: yMin, max: yMax,
+                ticks:{ font:{size:9}, stepSize,
+                  callback: v => tPct ? Math.round(v)+'%' : (Number.isInteger(v) ? v : +v.toFixed(2)) },
+                grid:{color:'#f0f0f0'} },
+              x:{ ticks:{font:{size:9}} }
+            }
+          }
+        });
+      }
     });
   }, 80);
 }
+
+function renderAreaExec(area, weekRes, totalPond, color) {
+  const cumple = weekRes.filter(r => r.res !== null && r.res >= (r.pond||0.9)*0.98).map(r=>r.ind);
+  const nocumple = weekRes.filter(r => r.res !== null && r.res < (r.pond||0.9)*0.80).map(r=>r.ind);
+  const sinDato = weekRes.filter(r => r.res === null).map(r=>r.ind);
+  const resp = [...new Set(weekRes.map(r=>r.resp).filter(Boolean))];
+  return `
+    <div class="exec-box" style="background:linear-gradient(135deg, ${color} 0%, ${color}cc 100%)">
+      <h3>📋 Resumen Ejecutivo — ${area}</h3>
+      <p id="exec-${area.replace(/\s/g,'_')}">
+        El área de <strong>${area}</strong> registró un resultado ponderado de <strong>${(totalPond*100).toFixed(1)}%</strong> en ${SEL_WEEK}.
+        ${totalPond>=0.95?'El área opera dentro del objetivo. Se recomienda mantener las buenas prácticas y buscar oportunidades de mejora continua.':
+          totalPond>=0.80?'El desempeño es parcial. Se identifican áreas de oportunidad que requieren atención en el corto plazo para alcanzar el objetivo del 95%.':
+          'El área presenta desempeño por debajo del objetivo. Se requieren acciones correctivas inmediatas y un plan de mejora urgente.'}
+        ${nocumple.length?` Los indicadores con mayor área de oportunidad son: ${nocumple.slice(0,3).join(', ')}.`:''}
+        ${sinDato.length?` ${sinDato.length} indicador(es) sin dato en esta semana.`:''}
+        ${resp.length?` Responsable(s): ${resp.join(', ')}.`:''}
+      </p>
+      <div class="exec-pills">
+        ${cumple.slice(0,4).map(i=>`<span class="exec-pill ok">✓ ${i.length>30?i.substring(0,28)+'…':i}</span>`).join('')}
+        ${nocumple.slice(0,3).map(i=>`<span class="exec-pill bad">✗ ${i.length>30?i.substring(0,28)+'…':i}</span>`).join('')}
+        ${sinDato.length?`<span class="exec-pill" style="background:rgba(255,255,255,.15)">⬜ ${sinDato.length} sin dato</span>`:''}
+      </div>
+    </div>
+  `;
+}
+
+function areaEmoji(a) {
+  const map = {'Alto Valor':'💎','Devoluciones':'↩️','Embarques/Insumos':'🚚','Multialmacen/Reabasto':'🏭','Garantías':'🔧','Producción':'⚙️','Picking':'📦','Checado':'✅','Mesa De Control':'🖥️','Inventarios':'📊'};
+  return map[a] || '📋';
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => { if (n.dataset.page) n.classList.toggle('active', n.dataset.page === name); });
+  const pg = document.getElementById('page-' + name);
+  if (pg) pg.classList.add('active');
+}
+
+function showAreaDirect(area) {
+  SEL_AREA = area;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`[data-area="${area}"]`)?.classList.add('active');
+  showPage('areas');
+  renderAreas();
+}
+
 // ── PDF REPORT GENERATOR ──────────────────────────────────────────────────────
 function areaConclusion(a, aRows, aScore, prevScore) {
   const cumple  = aRows.filter(r => { const c=evalCumplimiento(r.raw,r.obj,r.um); return c!==null && c>=0.98; });
@@ -1686,28 +1357,6 @@ ${historico}
   win.focus();
 }
 // ─────────────────────────────────────────────────────────────────────────────
-
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === name));
-  document.querySelectorAll('.nav-item[data-area]').forEach(n => n.classList.remove('active'));
-  const pg = document.getElementById('page-' + name);
-  if (pg) pg.classList.add('active');
-}
-
-function showAreaDirect(area) {
-  SEL_AREA = area;
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.querySelector(`[data-area="${area}"]`)?.classList.add('active');
-  showPage('areas');
-  renderAreas();
-}
-
-// Dept selector (placeholder for future departments)
-function changeDept(idx) {
-  SEL_DEPT = parseInt(idx);
-  loadData();
-}
 
 loadData();
 // Auto-refresh every 5 minutes
