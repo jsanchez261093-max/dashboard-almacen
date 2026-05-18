@@ -523,9 +523,12 @@ function getAreaTotals(week) {
 }
 
 function parseCSVtoRows(text) {
-  const rows = parseCSV(text);
-  // Keep Fecha Semana row + valid data rows
-  return rows.filter(r => r['Área'] && r['Área'].trim() && r['Indicador'] !== undefined);
+  const all = parseCSV(text);
+  // Keep Fecha Semana row (for date mapping) + valid data rows
+  return all.filter(r => {
+    const area = r['Área'] || '';
+    return area.trim() !== '' && r['Indicador'] !== undefined;
+  });
 }
 
 async function refreshNow() {
@@ -540,16 +543,33 @@ async function loadData() {
   document.getElementById('loader').innerHTML = '<div class="spinner"></div>Conectando con Google Sheets…';
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
-  // ── 1. Try Apps Script JSON API (primary — no CORS issues) ──────────────
+  // ── 1. Try CSV published URL (primary for GitHub Pages) ─────────────────
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(API_URL, { signal: ctrl.signal });
+    const res = await fetch(CSV_URL + '&t=' + Date.now(), { signal: ctrl.signal });
     clearTimeout(tid);
     if (res.ok) {
-      const json = await res.json();
+      const text = await res.text();
+      const rows = parseCSVtoRows(text);
+      if (rows.length > 0) {
+        processRows(rows);
+        document.getElementById('last-updated').textContent = '🟢 En vivo · ' + new Date().toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
+        document.getElementById('update-banner').style.display = 'none';
+        return;
+      }
+    }
+  } catch(e) { /* fall through */ }
+
+  // ── 2. Try Apps Script JSON API (fallback) ───────────────────────────────
+  try {
+    const ctrl2 = new AbortController();
+    const tid2 = setTimeout(() => ctrl2.abort(), 6000);
+    const res2 = await fetch(API_URL, { signal: ctrl2.signal });
+    clearTimeout(tid2);
+    if (res2.ok) {
+      const json = await res2.json();
       if (json.ok && json.rows && json.rows.length > 0) {
-        // Convert all values to strings to match CSV behaviour
         const rows = json.rows.map(r => {
           const clean = {};
           Object.keys(r).forEach(k => { clean[k] = r[k] === null || r[k] === undefined ? '' : String(r[k]); });
@@ -559,24 +579,6 @@ async function loadData() {
         const t = new Date(json.updated);
         document.getElementById('last-updated').textContent =
           '🟢 En vivo · ' + t.toLocaleDateString('es-MX', {day:'2-digit',month:'short'}) + ' ' + t.toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
-        document.getElementById('update-banner').style.display = 'none';
-        return;
-      }
-    }
-  } catch(e) { /* fall through */ }
-
-  // ── 2. Try CSV published URL (fallback) ─────────────────────────────────
-  try {
-    const ctrl2 = new AbortController();
-    const tid2 = setTimeout(() => ctrl2.abort(), 5000);
-    const res2 = await fetch(CSV_URL, { signal: ctrl2.signal });
-    clearTimeout(tid2);
-    if (res2.ok) {
-      const text = await res2.text();
-      const rows = parseCSVtoRows(text);
-      if (rows.length > 0) {
-        processRows(rows);
-        document.getElementById('last-updated').textContent = '🟡 CSV · ' + new Date().toLocaleTimeString('es-MX');
         document.getElementById('update-banner').style.display = 'none';
         return;
       }
