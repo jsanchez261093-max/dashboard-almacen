@@ -383,7 +383,7 @@ function processRows(rows) {
   const headers = Object.keys(DATA[0] || {});
   headers.forEach(h => { if (/^Semana \d+ - \d+$/.test(h)) WEEKS.push(h); });
   SEL_WEEK = WEEKS[WEEKS.length - 1] || '';
-  SEL_AREA = [...new Set(DATA.filter(r => r['Área'] !== 'Almacén').map(r => r['Área']))][0] || '';
+  SEL_AREA = [...new Set(DATA.map(r => r['Área']))][0] || '';
   renderAll();
   const now = new Date();
   document.getElementById('last-updated').textContent = 'Actualizado: ' + now.toLocaleTimeString('es-MX');
@@ -470,7 +470,7 @@ function loadFromCSV(text) {
 
 function getAreaTotals(week) {
   const map = {};
-  DATA.filter(r => r['Área'] !== 'Almacén').forEach(r => {
+  DATA.forEach(r => {
     const area = r['Área'];
     const res = toNum(r['Resultado ' + week]);
     if (!map[area]) map[area] = { sum: 0, count: 0, maxPond: 0 };
@@ -490,7 +490,7 @@ function renderAll() {
 }
 
 function renderSidebarAreas() {
-  const areas = [...new Set(DATA.map(r => r['Área']))].filter(a => a !== 'Almacén');
+  const areas = [...new Set(DATA.map(r => r['Área']))];
   const container = document.getElementById('area-nav-items');
   container.innerHTML = areas.map(a => `
     <div class="nav-item" onclick="showAreaDirect('${a}')" data-area="${a}">
@@ -617,7 +617,7 @@ function renderOverview() {
 }
 
 function renderAreas() {
-  const areas = [...new Set(DATA.map(r => r['Área']))].filter(a => a !== 'Almacén');
+  const areas = [...new Set(DATA.map(r => r['Área']))];
   // Area selector tabs
   document.getElementById('area-selector').innerHTML = areas.map(a => `
     <div class="atab ${a===SEL_AREA?'active':''}" style="${a===SEL_AREA?`background:${AREA_COLORS[a]};color:#fff;border-color:${AREA_COLORS[a]}`:''}" onclick="selectArea('${a}')">${a}</div>
